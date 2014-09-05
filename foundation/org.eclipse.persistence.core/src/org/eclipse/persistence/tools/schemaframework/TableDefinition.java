@@ -1359,8 +1359,16 @@ public class TableDefinition extends DatabaseObjectDefinition {
      * Set the foreign key constraints for this table.
      */
     public void setUserDefinedForeignKeyConstraints(Map<String, ForeignKeyConstraint> foreignKeyConstraints) {
-        foreignKeyMap = foreignKeyConstraints;
-        hasUserDefinedForeignKeyConstraints = true;
+        // check source and target fields in constraint are not null
+    	for (ForeignKeyConstraint fkconstraint: foreignKeyConstraints.values()){
+    	    if((fkconstraint.getSourceFields().size() > 0) && (fkconstraint.getTargetFields().size() > 0)){
+    	    	hasUserDefinedForeignKeyConstraints = true;
+    	    	break;
+    	    }
+    	}
+    	if(hasUserDefinedForeignKeyConstraints){
+    		foreignKeyMap = foreignKeyConstraints;
+    	}
     }
     
     /**
