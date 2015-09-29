@@ -1005,7 +1005,7 @@ public class MetadataProject {
      * Return the converter for the auto apply class type.
      */
     public ConverterAccessor getAutoApplyConverter(MetadataClass cls) {
-        return m_autoApplyConvertAccessors.get(cls.getName());
+        return m_autoApplyConvertAccessors.get(unPrimitive(cls.getName()));
     }
     
     /**
@@ -1332,7 +1332,54 @@ public class MetadataProject {
      * Return true if there is an auto-apply converter for the given cls.
      */
     public boolean hasAutoApplyConverter(MetadataClass cls) {
-        return m_autoApplyConvertAccessors.containsKey(cls.getName());
+        return m_autoApplyConvertAccessors.containsKey(unPrimitive(cls.getName()));
+    }
+    
+    private String unPrimitive(String name) 
+    {
+        String answer = name;
+        
+        if ("boolean".equals(name)) 
+        {
+            answer = "java.lang.Boolean";
+        }
+        
+        if ("int".equals(name)) 
+        {
+            answer = "java.lang.Integer";
+        }
+
+        if ("double".equals(name))
+        {
+            answer = "java.lang.Double";
+        }
+
+        if ("long".equals(name))
+        {
+            answer = "java.lang.Long";
+        }
+
+        if ("float".equals(name))
+        {
+            answer = "java.lang.Float";
+        }
+
+        if ("short".equals(name))
+        {
+            answer = "java.lang.Short";
+        }
+
+        if ("byte".equals(name))
+        {           
+            answer = "java.lang.Byte";
+        }
+
+        if ("char".equals(name))
+        {
+            answer = "java.lang.Character";
+        }
+
+        return answer;
     }
     
     /**
