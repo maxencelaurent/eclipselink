@@ -67,10 +67,6 @@ import javax.persistence.spi.LoadState;
 import javax.persistence.spi.ProviderUtil;
 import javax.sql.DataSource;
 
-import junit.framework.AssertionFailedError;
-import junit.framework.Test;
-import junit.framework.TestSuite;
-
 import org.eclipse.persistence.annotations.IdValidation;
 import org.eclipse.persistence.config.CacheUsage;
 import org.eclipse.persistence.config.CacheUsageIndirectionPolicy;
@@ -121,10 +117,12 @@ import org.eclipse.persistence.jpa.JpaEntityManagerFactory;
 import org.eclipse.persistence.jpa.JpaHelper;
 import org.eclipse.persistence.jpa.JpaQuery;
 import org.eclipse.persistence.jpa.PersistenceProvider;
+import org.eclipse.persistence.logging.AbstractSessionLog;
 import org.eclipse.persistence.logging.SessionLog;
 import org.eclipse.persistence.mappings.DatabaseMapping;
 import org.eclipse.persistence.platform.server.ServerPlatform;
 import org.eclipse.persistence.platform.server.ServerPlatformBase;
+import org.eclipse.persistence.platform.server.ServerPlatformUtils;
 import org.eclipse.persistence.platform.server.was.WebSphere_7_Platform;
 import org.eclipse.persistence.queries.CursoredStreamPolicy;
 import org.eclipse.persistence.queries.DataModifyQuery;
@@ -171,6 +169,7 @@ import org.eclipse.persistence.testing.models.jpa.advanced.AdvancedTableCreator;
 import org.eclipse.persistence.testing.models.jpa.advanced.Bungalow;
 import org.eclipse.persistence.testing.models.jpa.advanced.Buyer;
 import org.eclipse.persistence.testing.models.jpa.advanced.Canoe;
+import org.eclipse.persistence.testing.models.jpa.advanced.ConcreteJob;
 import org.eclipse.persistence.testing.models.jpa.advanced.Customer;
 import org.eclipse.persistence.testing.models.jpa.advanced.Customizer;
 import org.eclipse.persistence.testing.models.jpa.advanced.Dealer;
@@ -183,12 +182,14 @@ import org.eclipse.persistence.testing.models.jpa.advanced.EmployeePopulator;
 import org.eclipse.persistence.testing.models.jpa.advanced.EmploymentPeriod;
 import org.eclipse.persistence.testing.models.jpa.advanced.Equipment;
 import org.eclipse.persistence.testing.models.jpa.advanced.EquipmentCode;
+import org.eclipse.persistence.testing.models.jpa.advanced.Event;
 import org.eclipse.persistence.testing.models.jpa.advanced.FormerEmployment;
 import org.eclipse.persistence.testing.models.jpa.advanced.GoldBuyer;
 import org.eclipse.persistence.testing.models.jpa.advanced.Golfer;
 import org.eclipse.persistence.testing.models.jpa.advanced.GolferPK;
 import org.eclipse.persistence.testing.models.jpa.advanced.Hinge;
 import org.eclipse.persistence.testing.models.jpa.advanced.HugeProject;
+import org.eclipse.persistence.testing.models.jpa.advanced.Job;
 import org.eclipse.persistence.testing.models.jpa.advanced.Lake;
 import org.eclipse.persistence.testing.models.jpa.advanced.LargeProject;
 import org.eclipse.persistence.testing.models.jpa.advanced.Man;
@@ -209,8 +210,13 @@ import org.eclipse.persistence.testing.models.jpa.advanced.WorldRank;
 import org.eclipse.persistence.testing.models.jpa.relationships.CustomerCollection;
 import org.eclipse.persistence.testing.tests.feature.TestDataSource;
 import org.eclipse.persistence.testing.tests.jpa.unit.EMFProviderTest;
+import org.eclipse.persistence.testing.tests.weaving.SimpleSessionLogWrapper;
 import org.eclipse.persistence.tools.schemaframework.SequenceObjectDefinition;
 import org.junit.Assert;
+
+import junit.framework.AssertionFailedError;
+import junit.framework.Test;
+import junit.framework.TestSuite;
 
 /**
  * Test the EntityManager API using the advanced model.
@@ -319,6 +325,7 @@ public class EntityManagerJUnitTestSuite extends JUnitTestCase {
         tests.add("testWRITELock");
         tests.add("testOPTIMISTIC_FORCE_INCREMENTLock");
         tests.add("testReadOnlyTransactionalData");
+        tests.add("testReadOnlyCachedLazyAssociation");
         tests.add("testReadTransactionIsolation_OriginalInCache_UpdateAll_Refresh_Flush");
         tests.add("testReadTransactionIsolation_OriginalInCache_UpdateAll_Refresh");
         tests.add("testReadTransactionIsolation_OriginalInCache_UpdateAll_Flush");
@@ -466,6 +473,8 @@ public class EntityManagerJUnitTestSuite extends JUnitTestCase {
         tests.add("testBeginTransactionOnClosedEM");
         tests.add("testUpdateDetachedEntityWithRelationshipCascadeRefresh");
         tests.add("testForNPEInCloning"); //Bug#457480
+        tests.add("testCopy"); //Bug#463350
+        tests.add("testServerDetectionLogging"); //Bug#476018
 //        if (isJPA21()){
 //            tests.add("testUnsynchronizedPC");
 //        }
@@ -2990,6 +2999,9 @@ public class EntityManagerJUnitTestSuite extends JUnitTestCase {
             if (isTransactionActive(em)) {
                 rollbackTransaction(em);
             }
+            if (counter != null) {
+                counter.remove();
+            }
             closeEntityManager(em);
         }
     }
@@ -3103,6 +3115,9 @@ public class EntityManagerJUnitTestSuite extends JUnitTestCase {
         } finally {
             if (isTransactionActive(em)) {
                 rollbackTransaction(em);
+            }
+            if (counter != null) {
+                counter.remove();
             }
             closeEntityManager(em);
         }
@@ -4392,6 +4407,50 @@ public class EntityManagerJUnitTestSuite extends JUnitTestCase {
         em.getTransaction().rollback();
         em.clear();
         assertNull("Uncommitted Data loaded into cache", em.find(Employee.class, emp.getId()));
+    }
+    
+    public void testReadOnlyCachedLazyAssociation() {
+        EntityManager em = createEntityManager();
+        Integer empId;
+        
+        // setup
+        try {
+            beginTransaction(em);
+            Employee emp = new Employee();
+            emp.setFirstName("Mark");
+            emp.setLastName("Dowder");
+            PhoneNumber phone = new PhoneNumber("work", "613", "5555555");
+            emp.addPhoneNumber(phone);
+            phone = new PhoneNumber("home", "613", "4444444");
+            emp.addPhoneNumber(phone);
+            Address address = new Address("SomeStreet", "somecity", "province", "country", "postalcode");
+            emp.setAddress(address);
+            em.persist(emp);
+            em.flush();
+            commitTransaction(em);
+
+            empId = emp.getId();
+
+            // clear cache
+            em.getEntityManagerFactory().getCache().evictAll();
+            getServerSession().getIdentityMapAccessor().initializeIdentityMaps();
+        } catch (RuntimeException ex) {
+            rollbackTransaction(em);
+            throw ex;
+        }
+            
+        Employee emp = em.find(Employee.class, empId);
+        Assert.assertNotNull("No Employee retrieved", emp);
+        // Bug#474232
+        emp.getAddress();
+        
+        Employee cachedEmployee = em.createNamedQuery("findEmployeeByPK", Employee.class).
+                setParameter("id", empId).
+                setHint(QueryHints.READ_ONLY, HintValues.TRUE).
+                getSingleResult();
+        Assert.assertNotNull("Employee not found", cachedEmployee);
+        Address address = cachedEmployee.getAddress();
+        Assert.assertNotNull("Address of employee not retrieved", address);
     }
     
     public void testReadTransactionIsolation_CustomUpdate() {
@@ -12876,6 +12935,104 @@ public class EntityManagerJUnitTestSuite extends JUnitTestCase {
         }
     }
     
+    //Bug#463350
+    public void testCopy() {
+        EntityManager em = null;
+        Job job = new ConcreteJob();
+        CopyGroup eventsCG = new CopyGroup();
+        eventsCG.addAttribute("id");
+        eventsCG.addAttribute("datef");
+        CopyGroup jobCG = new CopyGroup();
+        jobCG.addAttribute("id");
+        eventsCG.addAttribute("job", jobCG);
+        jobCG.addAttribute("events", eventsCG);
+
+        try {
+            em = createEntityManager();
+            beginTransaction(em);
+            em.persist(job);
+            em.flush();
+            job = (Job) em.unwrap(JpaEntityManager.class).copy(job, jobCG);
+            commitTransaction(em);
+
+            for (int i = 0; i < 10; i++) {
+                beginTransaction(em);
+                job = em.merge(job);
+                em.flush();
+                Event e = new Event();
+                e.setJob(job);
+                job.getEvents().add(e);
+                em.flush();
+
+                CopyGroup eventsCG2 = new CopyGroup();
+                eventsCG2.addAttribute("id");
+                eventsCG2.addAttribute("datef");
+                CopyGroup jobCG2 = new CopyGroup();
+                jobCG2.addAttribute("id");
+                eventsCG2.addAttribute("job", jobCG2);
+                jobCG2.addAttribute("events", eventsCG2);
+
+                job = (Job) em.unwrap(JpaEntityManager.class).copy(job, jobCG2);
+                commitTransaction(em);
+            }
+        } finally {
+            if (em != null) {
+                closeEntityManagerAndTransaction(em);
+            }
+        }
+    }
+
+    /**
+     * Bug #476018
+     * This test verifies that EclipseLink prints server detection related log
+     * messages at appropriate level - FINE in session log, FINER in other cases
+     */
+    public void testServerDetectionLogging(){
+        if (isOnServer()) {
+            return;
+        }
+        closeEntityManagerFactory();
+
+        SessionLog original = AbstractSessionLog.getLog();
+        try {
+            AbstractSessionLog.setLog(new LogWrapper());
+            //check session log for "Configured server platform message"
+            Map<String, Object> properties = new HashMap<>();
+            properties.putAll(JUnitTestCaseHelper.getDatabaseProperties());
+            properties.put(PersistenceUnitProperties.LOGGING_LEVEL, original.getLevelString());
+            properties.put(PersistenceUnitProperties.LOGGING_LOGGER, LogWrapper.class.getName());
+            EntityManagerFactoryImpl emf = (EntityManagerFactoryImpl) Persistence.createEntityManagerFactory(getPersistenceUnitName(), properties);
+            emf.refreshMetadata(properties);
+            SimpleSessionLogWrapper wr = (SimpleSessionLogWrapper) emf.getServerSession().getSessionLog();
+            assertEquals("configured_server_platform should be printed at FINE level",
+                    wr.getLevel() <= SessionLog.FINE, wr.expected());
+
+            //it may happen that logging is not fully configured as that happens
+            //after detecting server platform; in such case, messages are printed out
+            //by an instance of DefaultSessionLog
+            LogWrapper lw = new LogWrapper("detect_server_platform");
+            AbstractSessionLog.setLog(lw);
+            AbstractSessionLog.getLog().setSession(null);
+            lw.setSession(null);
+            ServerPlatformUtils.detectServerPlatform(null);
+            assertEquals("detect_server_platform should be printed at FINER level",
+                    lw.getLevel() <= SessionLog.FINER, lw.expected());
+
+            lw = new LogWrapper("detect_server_platform");
+            AbstractSessionLog.setLog(lw);
+            Session ss = wr.getSession();
+            AbstractSessionLog.getLog().setSession(ss);
+            AbstractSessionLog.getLog().getSession().setSessionLog(lw);
+            lw.setSession(ss);
+            ServerPlatformUtils.detectServerPlatform((ServerSession) ss);
+            assertEquals("detect_server_platform should be printed at FINER level",
+                    lw.getLevel() <= SessionLog.FINER, lw.expected());
+        } finally {
+            AbstractSessionLog.setLog(original);
+            closeEntityManagerFactory();
+        }
+    }
+
     public static final class Platform extends ServerPlatformBase {
 
         public Platform(DatabaseSession newDatabaseSession) {

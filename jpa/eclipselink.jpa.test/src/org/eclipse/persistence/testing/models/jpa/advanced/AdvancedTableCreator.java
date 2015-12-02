@@ -24,18 +24,15 @@
  ******************************************************************************/  
 package org.eclipse.persistence.testing.models.jpa.advanced;
 
-import java.util.Vector;
-
 import org.eclipse.persistence.exceptions.DatabaseException;
-import org.eclipse.persistence.internal.sessions.AbstractSession;
-import org.eclipse.persistence.sessions.DatabaseSession;
-import org.eclipse.persistence.internal.helper.DatabaseField;
-import org.eclipse.persistence.internal.helper.DatabaseTable;
 import org.eclipse.persistence.internal.databaseaccess.DatabasePlatform;
 import org.eclipse.persistence.logging.SessionLog;
 import org.eclipse.persistence.logging.SessionLogEntry;
+import org.eclipse.persistence.sessions.DatabaseSession;
 import org.eclipse.persistence.testing.framework.TogglingFastTableCreator;
-import org.eclipse.persistence.tools.schemaframework.*;
+import org.eclipse.persistence.tools.schemaframework.FieldDefinition;
+import org.eclipse.persistence.tools.schemaframework.ForeignKeyConstraint;
+import org.eclipse.persistence.tools.schemaframework.TableDefinition;
 
 public class AdvancedTableCreator extends TogglingFastTableCreator {
     public AdvancedTableCreator() {
@@ -108,6 +105,13 @@ public class AdvancedTableCreator extends TogglingFastTableCreator {
         addTableDefinition(buildCmp3EmbedVisitorTable());
         addTableDefinition(buildCMP3_CANOETable());
         addTableDefinition(buildCMP3_LAKETable());
+        addTableDefinition(buildCMP3_OYSTERTable());
+        addTableDefinition(buildCMP3_PEARLTable());
+        addTableDefinition(buildCMP3_PEARL_HISTTable());
+        addTableDefinition(buildJobTable());
+        addTableDefinition(buildEventTable());
+        addTableDefinition(buildCMP3_TODOLISTTable());
+        addTableDefinition(buildCMP3_TODOLISTITEMTable());
     }
     
     public TableDefinition buildADDRESSTable() {
@@ -2827,6 +2831,192 @@ public class AdvancedTableCreator extends TogglingFastTableCreator {
     public TableDefinition buildCMP3_LAKETable() {
         TableDefinition table = new TableDefinition();
         table.setName("CMP3_LAKE");
+
+        FieldDefinition fieldID = new FieldDefinition();
+        fieldID.setName("ID");
+        fieldID.setTypeName("NUMBER");
+        fieldID.setSize(15);
+        fieldID.setIsPrimaryKey(true);
+        fieldID.setIsIdentity(false);
+        fieldID.setUnique(false);
+        fieldID.setShouldAllowNull(false);
+        table.addField(fieldID);
+
+        FieldDefinition fieldNAME = new FieldDefinition();
+        fieldNAME.setName("NAME");
+        fieldNAME.setTypeName("VARCHAR");
+        fieldNAME.setSize(32);
+        fieldNAME.setShouldAllowNull(true);
+        fieldNAME.setIsPrimaryKey(false);
+        fieldNAME.setUnique(false);
+        fieldNAME.setIsIdentity(false);
+        table.addField(fieldNAME);
+
+        return table;
+    }
+    
+    public TableDefinition buildCMP3_OYSTERTable() {
+        TableDefinition table = new TableDefinition();
+        table.setName("CMP3_OYSTER");
+        
+        FieldDefinition fieldID = new FieldDefinition();
+        fieldID.setName("ID");
+        fieldID.setTypeName("NUMBER");
+        fieldID.setSize(15);
+        fieldID.setIsPrimaryKey(true);
+        fieldID.setIsIdentity(false);
+        fieldID.setUnique(false);
+        fieldID.setShouldAllowNull(false);
+        table.addField(fieldID);
+        
+        FieldDefinition fieldCOLOR = new FieldDefinition();
+        fieldCOLOR.setName("COLOR");
+        fieldCOLOR.setTypeName("VARCHAR");
+        fieldCOLOR.setSize(32);
+        fieldCOLOR.setShouldAllowNull(true);
+        fieldCOLOR.setIsPrimaryKey(false);
+        fieldCOLOR.setUnique(false);
+        fieldCOLOR.setIsIdentity(false);
+        table.addField(fieldCOLOR);
+        
+        return table;
+    }
+    
+    public TableDefinition buildCMP3_PEARLTable() {
+        TableDefinition table = new TableDefinition();
+        table.setName("CMP3_PEARL");
+        
+        FieldDefinition fieldID = new FieldDefinition();
+        fieldID.setName("ID");
+        fieldID.setTypeName("NUMBER");
+        fieldID.setSize(15);
+        fieldID.setIsPrimaryKey(true);
+        fieldID.setIsIdentity(false);
+        fieldID.setUnique(false);
+        fieldID.setShouldAllowNull(false);
+        table.addField(fieldID);
+        
+        FieldDefinition fieldNAME = new FieldDefinition();
+        fieldNAME.setName("NAME");
+        fieldNAME.setTypeName("VARCHAR");
+        fieldNAME.setSize(32);
+        fieldNAME.setShouldAllowNull(true);
+        fieldNAME.setIsPrimaryKey(false);
+        fieldNAME.setUnique(false);
+        fieldNAME.setIsIdentity(false);
+        table.addField(fieldNAME);
+        
+        FieldDefinition fieldOYSTER_ID = new FieldDefinition();
+        fieldOYSTER_ID.setName("OYSTER_ID");
+        fieldOYSTER_ID.setTypeName("NUMBER");
+        fieldOYSTER_ID.setSize(15);
+        fieldOYSTER_ID.setIsPrimaryKey(false);
+        fieldOYSTER_ID.setIsIdentity(false);
+        fieldOYSTER_ID.setUnique(false);
+        fieldOYSTER_ID.setShouldAllowNull(true);
+        table.addField(fieldOYSTER_ID);
+        
+        return table;
+    }
+    
+    public TableDefinition buildCMP3_PEARL_HISTTable() {
+        TableDefinition table = buildCMP3_PEARLTable();
+        table.setName(table.getName() + "_HIST");
+        
+        FieldDefinition fieldSTART = new FieldDefinition();
+        fieldSTART.setName("START_DATE");
+        fieldSTART.setTypeName("TIMESTAMP");
+        fieldSTART.setIsPrimaryKey(true);
+        fieldSTART.setIsIdentity(false);
+        fieldSTART.setUnique(false);
+        fieldSTART.setShouldAllowNull(false);
+        table.addField(fieldSTART);
+        
+        FieldDefinition fieldEND = new FieldDefinition();
+        fieldEND.setName("END_DATE");
+        fieldEND.setTypeName("TIMESTAMP");
+        fieldEND.setIsPrimaryKey(false);
+        fieldEND.setIsIdentity(false);
+        fieldEND.setUnique(false);
+        fieldEND.setShouldAllowNull(true);
+        table.addField(fieldEND);
+        
+        return table;
+    }
+
+    public TableDefinition buildJobTable() {
+        TableDefinition table = new TableDefinition();
+        table.setName("JOB");
+
+        FieldDefinition fieldID = new FieldDefinition();
+        fieldID.setName("ID");
+        fieldID.setTypeName("BIGINT");
+        fieldID.setSize(15);
+        fieldID.setIsPrimaryKey(true);
+        fieldID.setIsIdentity(false);
+        fieldID.setUnique(false);
+        fieldID.setShouldAllowNull(false);
+        table.addField(fieldID);
+
+        FieldDefinition fieldDTYPE = new FieldDefinition();
+        fieldDTYPE.setName("DTYPE");
+        fieldDTYPE.setTypeName("VARCHAR");
+        fieldDTYPE.setSize(31);
+        fieldDTYPE.setShouldAllowNull(true);
+        fieldDTYPE.setIsPrimaryKey(false);
+        fieldDTYPE.setUnique(false);
+        fieldDTYPE.setIsIdentity(false);
+        table.addField(fieldDTYPE);
+
+        return table;
+    }
+
+    public TableDefinition buildEventTable() {
+        TableDefinition table = new TableDefinition();
+        table.setName("EVENT");
+
+        FieldDefinition fieldID = new FieldDefinition();
+        fieldID.setName("ID");
+        fieldID.setTypeName("BIGINT");
+        fieldID.setSize(15);
+        fieldID.setIsPrimaryKey(true);
+        fieldID.setIsIdentity(false);
+        fieldID.setUnique(false);
+        fieldID.setShouldAllowNull(false);
+        table.addField(fieldID);
+
+        FieldDefinition fieldDATEF = new FieldDefinition();
+        fieldDATEF.setName("DATEF");
+        fieldDATEF.setTypeName("TIMESTAMP");
+        fieldDATEF.setShouldAllowNull(true);
+        fieldDATEF.setIsPrimaryKey(false);
+        fieldDATEF.setUnique(false);
+        fieldDATEF.setIsIdentity(false);
+        table.addField(fieldDATEF);
+
+        FieldDefinition fieldJOBID = new FieldDefinition();
+        fieldJOBID.setName("JOB_ID");
+        fieldJOBID.setTypeName("BIGINT");
+        fieldJOBID.setSize(15);
+        fieldJOBID.setIsPrimaryKey(false);
+        fieldJOBID.setIsIdentity(false);
+        fieldJOBID.setUnique(false);
+        fieldJOBID.setShouldAllowNull(true);
+        table.addField(fieldJOBID);
+
+        ForeignKeyConstraint foreignKeyFK_EVENT_JOB_ID = new ForeignKeyConstraint();
+        foreignKeyFK_EVENT_JOB_ID.setName("FK_EVENT_JOB_ID");
+        foreignKeyFK_EVENT_JOB_ID.setTargetTable("JOB");
+        foreignKeyFK_EVENT_JOB_ID.addSourceField("JOB_ID");
+        foreignKeyFK_EVENT_JOB_ID.addTargetField("ID");
+        table.addForeignKeyConstraint(foreignKeyFK_EVENT_JOB_ID);
+
+        return table;
+    }
+    
+    public TableDefinition buildCMP3_TODOLISTTable() {
+        TableDefinition table = new TableDefinition();
+        table.setName("CMP3_TODOLIST");
         
         FieldDefinition fieldID = new FieldDefinition();
         fieldID.setName("ID");
@@ -2850,7 +3040,41 @@ public class AdvancedTableCreator extends TogglingFastTableCreator {
         
         return table;
     }
-
+    
+    public TableDefinition buildCMP3_TODOLISTITEMTable() {
+        TableDefinition table = new TableDefinition();
+        table.setName("CMP3_TODOLISTITEM");
+        
+        FieldDefinition fieldID = new FieldDefinition();
+        fieldID.setName("TODOLIST_ID");
+        fieldID.setTypeName("NUMBER");
+        fieldID.setSize(15);
+        fieldID.setIsPrimaryKey(false);
+        fieldID.setIsIdentity(false);
+        fieldID.setUnique(false);
+        fieldID.setShouldAllowNull(false);
+        table.addField(fieldID);
+        
+        FieldDefinition fieldNAME = new FieldDefinition();
+        fieldNAME.setName("ITEM_TEXT");
+        fieldNAME.setTypeName("VARCHAR");
+        fieldNAME.setSize(64);
+        fieldNAME.setShouldAllowNull(true);
+        fieldNAME.setIsPrimaryKey(false);
+        fieldNAME.setUnique(false);
+        fieldNAME.setIsIdentity(false);
+        table.addField(fieldNAME);
+        
+        ForeignKeyConstraint fk_TODOLISTITEM_TODOLIST = new ForeignKeyConstraint();
+        fk_TODOLISTITEM_TODOLIST.setName("FK_TODOLISTITEM_TODOLIST");
+        fk_TODOLISTITEM_TODOLIST.setTargetTable("CMP3_TODOLIST");
+        fk_TODOLISTITEM_TODOLIST.addSourceField("TODOLIST_ID");
+        fk_TODOLISTITEM_TODOLIST.addTargetField("ID");
+        table.addForeignKeyConstraint(fk_TODOLISTITEM_TODOLIST);
+        
+        return table;
+    }
+    
     @Override
     public void replaceTables(DatabaseSession session) {
         DatabasePlatform dbPlatform = session.getPlatform();
