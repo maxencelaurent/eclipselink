@@ -57,10 +57,10 @@
     <taskdef  name="say"           classname="${custom.echo.task.class}"     classpath="${custom.tasks.lib}"/>
 
     <target name="build-nightly"    description="Trigger the nightly automated build and lrg tests"
-            depends="clean, build, extract-build-artifacts, test-lrg, extract-test-results"
+            depends="clean, build, extract-build-artifacts, test-p2-repos, test-lrg, extract-test-results"
     />
     <target name="build-nightly-nopublish"    description="Trigger the nightly automated build and lrg tests without publish"
-            depends="clean, build, test-lrg"
+            depends="clean, build, test-p2-repos, test-lrg"
     />
     <target name="build-continuous" description="Trigger an automated build and run the tests if source changes exist"
             depends="clean, build-no-javadoc, build-utils, test-srg"
@@ -295,6 +295,10 @@
 
     <target name="build-core-test" depends="init">
         <ant antfile="antbuild.xml" dir="${build.location}" target="build-core-test"/>
+    </target>
+
+    <target name="test-p2-repos">
+        <ant antfile="antbuild.xml" dir="${build.location}/features" target="test-repos"/>
     </target>
 
     <target name="test-srg">

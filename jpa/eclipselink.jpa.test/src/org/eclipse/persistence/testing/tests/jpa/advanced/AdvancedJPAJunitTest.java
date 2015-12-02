@@ -66,10 +66,13 @@ import org.eclipse.persistence.descriptors.DescriptorEvent;
 import org.eclipse.persistence.descriptors.DescriptorEventAdapter;
 import org.eclipse.persistence.descriptors.invalidation.CacheInvalidationPolicy;
 import org.eclipse.persistence.descriptors.invalidation.TimeToLiveCacheInvalidationPolicy;
+import org.eclipse.persistence.indirection.IndirectCollection;
 import org.eclipse.persistence.internal.helper.ClassConstants;
 import org.eclipse.persistence.internal.helper.DatabaseField;
 import org.eclipse.persistence.internal.helper.DatabaseTable;
 import org.eclipse.persistence.internal.helper.Helper;
+import org.eclipse.persistence.internal.indirection.DatabaseValueHolder;
+import org.eclipse.persistence.history.AsOfClause;
 import org.eclipse.persistence.internal.jpa.EJBQueryImpl;
 import org.eclipse.persistence.internal.jpa.EntityManagerFactoryDelegate;
 import org.eclipse.persistence.internal.jpa.EntityManagerImpl;
@@ -116,12 +119,15 @@ import org.eclipse.persistence.testing.models.jpa.advanced.Jigsaw;
 import org.eclipse.persistence.testing.models.jpa.advanced.JigsawPiece;
 import org.eclipse.persistence.testing.models.jpa.advanced.LargeProject;
 import org.eclipse.persistence.testing.models.jpa.advanced.Loot;
+import org.eclipse.persistence.testing.models.jpa.advanced.Oyster;
+import org.eclipse.persistence.testing.models.jpa.advanced.Pearl;
 import org.eclipse.persistence.testing.models.jpa.advanced.PhoneNumber;
 import org.eclipse.persistence.testing.models.jpa.advanced.Product;
 import org.eclipse.persistence.testing.models.jpa.advanced.Project;
 import org.eclipse.persistence.testing.models.jpa.advanced.Quantity;
 import org.eclipse.persistence.testing.models.jpa.advanced.Room;
 import org.eclipse.persistence.testing.models.jpa.advanced.SmallProject;
+import org.eclipse.persistence.testing.models.jpa.advanced.ToDoList;
 import org.eclipse.persistence.testing.models.jpa.advanced.Violation;
 import org.eclipse.persistence.testing.models.jpa.advanced.ViolationCode;
 import org.eclipse.persistence.testing.models.jpa.advanced.Violation.ViolationID;
@@ -237,6 +243,7 @@ public class AdvancedJPAJunitTest extends JUnitTestCase {
         suite.addTest(new AdvancedJPAJunitTest("testAttributeOverrideToMultipleSameDefaultColumnName"));
         suite.addTest(new AdvancedJPAJunitTest("testJoinFetchWithRefreshOnRelatedEntity"));
         suite.addTest(new AdvancedJPAJunitTest("testSharedEmbeddedAttributeOverrides"));
+        suite.addTest(new AdvancedJPAJunitTest("testTransparentIndirectionValueHolderSessionReset"));
         
         if (!isJPA10()) {
             // These tests use JPA 2.0 entity manager API
@@ -256,6 +263,9 @@ public class AdvancedJPAJunitTest extends JUnitTestCase {
             suite.addTest(new AdvancedJPAJunitTest("testProjectToEmployeeWithBatchFetchJoinFetch"));
             suite.addTest(new AdvancedJPAJunitTest("testEmployeeToPhoneNumberWithBatchFetchJoinFetch"));
             suite.addTest(new AdvancedJPAJunitTest("testEmployeeToAddressWithBatchFetchJoinFetch"));
+            
+            suite.addTest(new AdvancedJPAJunitTest("testHistoryRelationshipQueryInitialization"));
+            suite.addTest(new AdvancedJPAJunitTest("testQueryJoinBasicCollectionTableUsingQueryResultsCache"));
         }
         
         return suite;
@@ -3069,6 +3079,234 @@ public class AdvancedJPAJunitTest extends JUnitTestCase {
         }
     }
     
+    /**
+     * Bug 464088
+     * Test non-historized Entity eager-referencing a historized Entity's queries function correctly
+     * when read all queries are executed on a 'historical' session before a 'regular' session.
+     * Uses very specialized non-cacheable entities: Oyster bi-directional eager 1:1 to: Pearl(historized)
+     */
+    public void testHistoryRelationshipQueryInitialization() {
+        // setup
+        EntityManager em = createEntityManager();
+        
+        Oyster oyster = null;
+        Pearl pearl = null;
+        try {
+            beginTransaction(em);
+            
+            oyster = new Oyster();
+            oyster.setColor("Black");
+            pearl = new Pearl();
+            pearl.setName("Bob");
+            oyster.setPearl(pearl);
+            pearl.setOyster(oyster);
+            
+            em.persist(oyster);
+            em.flush();
+            
+            try {
+                Thread.sleep(1000); // pause for a bit to allow timestamps to be different
+            } catch (InterruptedException ie) {} // ignore
+            
+            oyster.getPearl().setName("Doug"); // change related entity for history entry
+            
+            commitTransaction(em);
+        } finally {
+            closeEntityManager(em);
+        }
+        
+        // test
+        em = createEntityManager();
+        try {
+            Calendar asOfDate = Calendar.getInstance();
+            asOfDate.set(1999, 1, 1, 12, 0, 0);
+            
+            // execute a historical query against the non-historical Oyster entity
+            Session client = JpaHelper.getServerSession(em.getEntityManagerFactory()).acquireClientSession();
+            Session historical = client.acquireHistoricalSession(new AsOfClause(asOfDate));
+            
+            List<Oyster> oysters = (List<Oyster>)historical.readAllObjects(Oyster.class);
+            assertTrue("Historical query: Oysters should be non-empty", oysters.size() > 0);
+            for (Oyster oysterElem : oysters) {
+                assertNull("Historical query: Oyster should not have a pearl", oysterElem.getPearl());
+            }
+            
+            // execute a non historical query through JPQL against the Oyster entity
+            oysters = (List<Oyster>)em.createQuery("SELECT e FROM Oyster e", Oyster.class).getResultList();
+            assertTrue("JPA query: Oysters should be non-empty", oysters.size() > 0);
+            for (Oyster oysterElem : oysters) {
+                assertNotNull("JPA query: Oyster should have a pearl, historical query executed", oysterElem.getPearl());
+            }
+        } finally {
+            closeEntityManager(em);
+        }
+        
+        // reset
+        em = createEntityManager();
+        try {
+            beginTransaction(em);
+            oyster = em.find(Oyster.class, oyster.getId());
+            if (oyster != null) {
+                em.remove(oyster);
+            }
+            pearl = em.find(Pearl.class, pearl.getId());
+            if (pearl != null) {
+                em.remove(pearl);
+            }
+            commitTransaction(em);
+        } finally {
+            closeEntityManager(em);
+        }
+    }
+    
+    /**
+     * Bug 470007 - NPE in normalize() when querying on ElementCollection->CollectionTable, with query results caching enabled
+     * Tests querying across an Entity (ToDoList) containing an ElementCollection with a CollectionTable, referencing a
+     * basic type (String). A NullPointerException was previously observed when query results caching is enabled on the query.  
+     */
+    public void testQueryJoinBasicCollectionTableUsingQueryResultsCache() {
+        // setup
+        EntityManager em = createEntityManager();
+        try {
+            beginTransaction(em);
+            
+            String commonName = "My List";
+            String commonItem = "Feed the cat";
+            
+            // setup
+            // ToDoList has a Set<String>, mapped to an @ElementCollection, using @CollectionTable (String)
+            ToDoList bobsList = new ToDoList(1, commonName);
+            bobsList.addItem(commonItem);
+            bobsList.addItem("Cook dinner");
+            bobsList.addItem("Watch TV");
+            
+            ToDoList jensList = new ToDoList(2, commonName);
+            jensList.addItem("Feed the dog");
+            jensList.addItem("Hire and fire");
+            jensList.addItem("Eat chocolate");
+            
+            ToDoList bertsList = new ToDoList(3, commonName);
+            bertsList.addItem(commonItem);
+            bertsList.addItem("Feed the kids");
+            bertsList.addItem("Feed the wife");
+            
+            em.persist(bobsList);
+            em.persist(jensList);
+            em.persist(bertsList);
+            em.flush();
+            
+            // test
+            Query query = em.createQuery("SELECT tdl FROM ToDoList tdl JOIN tdl.items items " + 
+                    "WHERE tdl.name = :p_name AND items = :p_itemName");
+            query.setHint(QueryHints.QUERY_RESULTS_CACHE, HintValues.TRUE);
+            
+            query.setParameter("p_name", commonName);
+            query.setParameter("p_itemName", commonItem);
+            List<ToDoList> listsReturned = query.getResultList();
+            
+            // verify
+            assertNotNull("Query results should not be null", listsReturned);
+            assertSame("Query results size", 2, listsReturned.size()); // 2 results expected
+            
+            for (ToDoList aList : listsReturned) {
+                assertEquals(commonName, aList.getName());
+                assertTrue(aList.getItems().contains(commonItem));
+            }
+            
+        } finally {
+            // reset - rollback
+            if (isTransactionActive(em)) {
+                rollbackTransaction(em);
+            }
+            closeEntityManager(em);
+        }
+    }
+    
+    /**
+     * Bug 470161 - ServerSession links RepeatableWriteUnitOfWork via entity / IndirectList / QueryBasedValueHolder\
+     * 
+     * Through the UoW: Persist a new object, read an existing object in (building from rows, original not put in the
+     * shared cache), associate existing object with new object, commit. Previously, after the changes are merged 
+     * into the shared cache, the transparent collection on the existing object has a wrapped VH from the initial uow 
+     * query, which internally references the uow session, not the shared session.
+     */
+    public void testTransparentIndirectionValueHolderSessionReset() {
+        Employee emp = null;
+        Dealer dealer = null;
+        
+        // setup
+        EntityManager em = createEntityManager();
+        try {
+            beginTransaction(em);
+            dealer = new Dealer();
+            dealer.setFirstName("Angle");
+            dealer.setLastName("Bracket");
+            em.persist(dealer);
+            commitTransaction(em);
+        } finally {
+            closeEntityManager(em);
+            clearCache(); // start test with an empty cache
+        }
+        
+        // test
+        em = createEntityManager();
+        try {
+            beginTransaction(em);
+            
+            emp = new Employee();
+            emp.setFemale();
+            emp.setFirstName("Case");
+            emp.setLastName("Statement");
+            em.persist(emp);
+            
+            Query query = em.createQuery("select d from Dealer d where d.firstName = :firstName and d.lastName = :lastName");
+            query.setParameter("firstName", dealer.getFirstName());
+            query.setParameter("lastName", dealer.getLastName());
+            List<Dealer> resultsList = query.getResultList();
+            assertTrue("List returned should be non-empty", resultsList.size() > 0);
+            
+            Dealer dealerFound = resultsList.get(0);
+            emp.addDealer(dealerFound);
+            
+            commitTransaction(em);
+            
+            // verify valueholder configuration in shared cache
+            Session parentSession = JpaHelper.getServerSession(em.getEntityManagerFactory());
+            Dealer cachedDealer = (Dealer) parentSession.getIdentityMapAccessor().getFromIdentityMap(dealer);
+            assertNotNull("Dealer with id should be in the cache: " + dealer.getId(), cachedDealer);
+            
+            ClassDescriptor descriptor = parentSession.getDescriptor(Dealer.class);
+            DatabaseMapping mapping = descriptor.getMappingForAttributeName("customers");
+            IndirectCollection indirectCollection = (IndirectCollection) mapping.getAttributeValueFromObject(cachedDealer);
+            assertFalse("Collection VH should be uninstantiated", indirectCollection.isInstantiated());
+            
+            DatabaseValueHolder dbValueHolder = (DatabaseValueHolder) indirectCollection.getValueHolder();
+            assertFalse("Referenced VH should be uninstantiated", dbValueHolder.isInstantiated());
+            
+            Session vhSession = dbValueHolder.getSession();
+            assertSame("Dealer.customers VH session should reference the shared session", parentSession, vhSession);
+        } finally {
+            closeEntityManager(em);
+        }
+        
+        // reset
+        em = createEntityManager();
+        try {
+            beginTransaction(em);
+            emp = em.find(Employee.class, emp.getId());
+            if (emp != null) {
+                em.remove(emp);
+            }
+            dealer = em.find(Dealer.class, dealer.getId());
+            if (dealer != null) {
+                em.remove(dealer);
+            }
+            commitTransaction(em);
+        } finally {
+            closeEntityManager(em);
+        }
+    }
+
     protected int getVersion(EntityManager em, Dealer dealer) {
         Vector pk = new Vector(1);
         pk.add(dealer.getId());

@@ -9,9 +9,12 @@
  *
  * Contributors:
  *     Marcel Valovy - 2.6 - initial API and implementation
+ *     Dmitry Kornilov - 2.6.1 - removed static maps
  ******************************************************************************/
 package org.eclipse.persistence.jaxb;
 
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import javax.validation.Constraint;
 import javax.validation.Valid;
 import javax.validation.constraints.AssertFalse;
@@ -19,7 +22,6 @@ import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Digits;
-import javax.validation.constraints.Future;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -34,47 +36,37 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * INTERNAL:
  *
- * Utility class for bean validation related tasks.
- *  - Singleton.
- *  - Thread-safe.
+ * Asynchronously starts validation.xml file processing when created. Holds a map of classes with BV annotations.
  *
- * @author Marcel Valovy - marcel.valovy@oracle.com
+ * @author Marcel Valovy, Dmitry Kornilov
  * @since 2.6
  */
-enum BeanValidationHelper {
-    BEAN_VALIDATION_HELPER;
+final public class BeanValidationHelper {
 
-    static {
-        ValidationXMLReader.runAsynchronously();
-    }
+    private static final Logger LOGGER = Logger.getLogger(BeanValidationHelper.class.getName());
 
-    /**
-     * How long to wait for {@link ValidationXMLReader#runAsynchronously()} to finish. This is only used
-     * to account for interrupts. If the asynchronous thread is interrupted and flag {@link
-     * ValidationXMLReader#firstTime} is false, deadlock occurs. This prevents such deadlock.
-     */
-    private static final int TIMEOUT = 10; // milliseconds, can specify in single digits since nanoTime is used.
-
-    /**
-     * Speed-up flag. Indicates that parsing of validation.xml file has finished.
-     */
-    private static boolean xmlParsed = false;
+    private Future<Map<Class<?>, Boolean>> future;
 
     /**
      * Set of all default BeanValidation field or method annotations and known custom field or method constraints.
      */
     private final Set<Class<? extends Annotation>> knownConstraints = new HashSet<>();
 
-     /**
+    /**
      * Map of all classes that have undergone check for bean validation constraints.
      * Maps the key with boolean value telling whether the class contains an annotation from {@link #knownConstraints}.
      */
-    private final Map<Class<?>, Boolean> constraintsOnClasses = new HashMap<>();
+    private Map<Class<?>, Boolean> constraintsOnClasses = null;
 
     {
         knownConstraints.add(Valid.class);
@@ -88,7 +80,7 @@ enum BeanValidationHelper {
         knownConstraints.add(Size.class);
         knownConstraints.add(AssertTrue.class);
         knownConstraints.add(AssertFalse.class);
-        knownConstraints.add(Future.class);
+        knownConstraints.add(javax.validation.constraints.Future.class);
         knownConstraints.add(Past.class);
         knownConstraints.add(Max.List.class);
         knownConstraints.add(Min.List.class);
@@ -100,17 +92,21 @@ enum BeanValidationHelper {
         knownConstraints.add(Size.List.class);
         knownConstraints.add(AssertTrue.List.class);
         knownConstraints.add(AssertFalse.List.class);
-        knownConstraints.add(Future.List.class);
+        knownConstraints.add(javax.validation.constraints.Future.List.class);
         knownConstraints.add(Past.List.class);
     }
 
     /**
-     * Put a class to map of constrained classes with value Boolean.TRUE. Specifying value is not allowed because
-     * there is no thing to detect that would make class not constrained after it was already found to be constrained.
-     * @return value previously associated with the class or null if the class was not in dictionary before
+     * Creates a new instance. Starts asynchronous parsing of validation.xml if it exists.
      */
-    Boolean putConstrainedClass(Class<?> clazz) {
-        return constraintsOnClasses.put(clazz, Boolean.TRUE);
+    public BeanValidationHelper() {
+        // Try to run validation.xml parsing asynchronously if validation.xml exists
+        if (ValidationXMLReader.isValidationXmlPresent()) {
+            parseValidationXmlAsync();
+        } else {
+            // validation.xml doesn't exist -> create an empty map
+            constraintsOnClasses = new HashMap<>();
+        }
     }
 
     /**
@@ -121,18 +117,73 @@ enum BeanValidationHelper {
      * @return true or false
      */
     boolean isConstrained(Class<?> clazz) {
-        if (!xmlParsed) ensureValidationXmlWasParsed();
-
-        Boolean annotated = constraintsOnClasses.get(clazz);
+        Boolean annotated = getConstraintsMap().get(clazz);
         if (annotated == null) {
             annotated = detectConstraints(clazz);
-            constraintsOnClasses.put(clazz, annotated);
+            getConstraintsMap().put(clazz, annotated);
         }
         return annotated;
     }
 
     /**
-     * INTERNAL:
+     * Lazy getter for constraintsOnClasses property. Waits until the map is returned by async XML reader.
+     */
+    public Map<Class<?>, Boolean> getConstraintsMap() {
+        if (constraintsOnClasses == null) {
+            if (future == null) {
+                // This happens when submission of async task is failed. Run validation.xml parsing synchronously.
+                constraintsOnClasses = parseValidationXml();
+            } else {
+                // Async task was successfully submitted. get a result from future
+                try {
+                    constraintsOnClasses = future.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    // For some reason the async parsing attempt failed. Call it synchronously.
+                    LOGGER.log(Level.WARNING, "Error parsing validation.xml the async way", e);
+                    constraintsOnClasses = parseValidationXml();
+                }
+            }
+        }
+        return constraintsOnClasses;
+    }
+
+    /**
+     * Tries to run validation.xml parsing asynchronously.
+     */
+    private void parseValidationXmlAsync() {
+        Executor executor = null;
+        try {
+            executor = createExecutor();
+            future = executor.executorService.submit(new ValidationXMLReader());
+        } catch (Throwable e) {
+            // In the rare cases submitting a task throws OutOfMemoryError. In this case we call validation.xml
+            // parsing lazily when requested
+            LOGGER.log(Level.WARNING, "Error creating/submitting async validation.xml parsing task.", e);
+            future = null;
+        } finally {
+            // Shutdown is needed only for JDK executor
+            if (executor != null && executor.shutdownNeeded) {
+                executor.executorService.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Runs validation.xml parsing synchronously.
+     */
+    private Map<Class<?>, Boolean> parseValidationXml() {
+        final ValidationXMLReader reader = new ValidationXMLReader();
+        Map<Class<?>, Boolean> result;
+        try {
+            result = reader.call();
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error parsing validation.xml synchronously", e);
+            result = new HashMap<>();
+        }
+        return result;
+    }
+
+    /**
      * Reveals whether any of the class's fields or methods are constrained by Bean Validation annotations or custom
      * constraints.
      * Uses reflection.
@@ -193,33 +244,31 @@ enum BeanValidationHelper {
     }
 
     /**
-     * INTERNAL:
-     * Ensures that validation.xml was parsed and classes described externally were added to {@link
-     * #constraintsOnClasses}.
-     * Strategy:
-     *  - if {@link ValidationXMLReader#runAsynchronously()} is not doing anything,
-     *  run parsing synchronously.
-     *  - else if latch count set to 0 aka async call finished, return
-     *  - else wait for {@link #TIMEOUT} seconds to allow async thread to finish. If it does not finish till then,
-     *  run parsing synchronously.
-     *
-     *  Note: Run parsing synchronously is force of last resort. If that fails, we proceed with validation and do not
-     *  account for classes specified in validation.xml - there is high chance that if we cannot read validation.xml
-     *  successfully, neither will be able the Validation implementation.
+     * Creates an executor service. Tries to get a managed executor service. If failed creates a JDK one.
+     * Sets shutdownNeeded property to true in case JDK executor is created.
      */
-    private void ensureValidationXmlWasParsed() {
-        // loop handles InterruptedException
-        while (!xmlParsed) {
-            try {
-                if (ValidationXMLReader.asyncAttemptFailed()
-                        || !ValidationXMLReader.latch.await(TIMEOUT, TimeUnit.MILLISECONDS)) {
-                    ValidationXMLReader.runSynchronouslyForced();
-                }
-                xmlParsed = true;
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
+    private Executor createExecutor() {
+        try {
+            InitialContext jndiCtx = new InitialContext();
+            // type:      javax.enterprise.concurrent.ManagedExecutorService
+            // jndi-name: concurrent/ThreadPool
+            return new Executor((ExecutorService) jndiCtx.lookup("java:comp/env/concurrent/ThreadPool"), false);
+        } catch (NamingException ignored) {
+            // aka continue to proceed with retrieving jdk executor
         }
+        return new Executor(Executors.newFixedThreadPool(1), true);
     }
 
+    /**
+     * This class holds a managed or JDK executor instance with a flag indicating do we need to shut it down or not.
+     */
+    private static class Executor {
+        ExecutorService executorService;
+        boolean shutdownNeeded;
+
+        Executor(ExecutorService executorService, boolean shutdownNeeded) {
+            this.executorService = executorService;
+            this.shutdownNeeded = shutdownNeeded;
+        }
+    }
 }

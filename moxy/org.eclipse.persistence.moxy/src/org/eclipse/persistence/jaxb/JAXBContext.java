@@ -10,44 +10,9 @@
  * Contributors:
  *     Oracle - initial API and implementation from Oracle TopLink
  *     Marcel Valovy - 2.6 - added case insensitive unmarshalling property
+ *     Dmitry Kornilov - 2.6.1 - BeanValidationHelper refactoring
  ******************************************************************************/
 package org.eclipse.persistence.jaxb;
-
-import static org.eclipse.persistence.jaxb.javamodel.Helper.getQualifiedJavaTypeName;
-
-import java.awt.Image;
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.Vector;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.PropertyException;
-import javax.xml.bind.SchemaOutputResolver;
-import javax.xml.bind.ValidationEvent;
-import javax.xml.bind.ValidationEventHandler;
-import javax.xml.bind.annotation.adapters.XmlAdapter;
-import javax.xml.namespace.QName;
-import javax.xml.stream.FactoryConfigurationError;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.transform.Source;
 
 import org.eclipse.persistence.core.queries.CoreAttributeGroup;
 import org.eclipse.persistence.core.sessions.CoreProject;
@@ -97,6 +62,41 @@ import org.eclipse.persistence.oxm.platform.SAXPlatform;
 import org.eclipse.persistence.oxm.platform.XMLPlatform;
 import org.eclipse.persistence.sessions.Project;
 import org.eclipse.persistence.sessions.SessionEventListener;
+
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.PropertyException;
+import javax.xml.bind.SchemaOutputResolver;
+import javax.xml.bind.ValidationEvent;
+import javax.xml.bind.ValidationEventHandler;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.namespace.QName;
+import javax.xml.stream.FactoryConfigurationError;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.transform.Source;
+import java.awt.*;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.StringTokenizer;
+import java.util.Vector;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.eclipse.persistence.jaxb.javamodel.Helper.getQualifiedJavaTypeName;
 
 /**
  * <p><b>Purpose:</b>Provide a EclipseLink implementation of the JAXBContext interface.
@@ -179,14 +179,18 @@ public class JAXBContext extends javax.xml.bind.JAXBContext {
     private boolean initializedXMLInputFactory = false;
     private JAXBMarshaller jsonSchemaMarshaller;
 
+    private BeanValidationHelper beanValidationHelper;
+
     protected JAXBContext() {
         super();
         contextState = new JAXBContextState();
+        initBeanValidation();
     }
 
     protected JAXBContext(JAXBContextInput contextInput) throws javax.xml.bind.JAXBException {
         this.contextInput = contextInput;
         this.contextState = contextInput.createContextState();
+        initBeanValidation();
     }
 
     /**
@@ -195,6 +199,7 @@ public class JAXBContext extends javax.xml.bind.JAXBContext {
      */
     public JAXBContext(XMLContext context) {
         contextState = new JAXBContextState(context);
+        initBeanValidation();
     }
 
     /**
@@ -203,6 +208,7 @@ public class JAXBContext extends javax.xml.bind.JAXBContext {
      */
     public JAXBContext(XMLContext context, Generator generator, Type[] boundTypes) {
         contextState = new JAXBContextState(context, generator, boundTypes, null);
+        initBeanValidation();
     }
 
     /**
@@ -211,6 +217,24 @@ public class JAXBContext extends javax.xml.bind.JAXBContext {
      */
     public JAXBContext(XMLContext context, Generator generator, TypeMappingInfo[] boundTypes) {
         contextState = new JAXBContextState(context, generator, boundTypes, null);
+        initBeanValidation();
+    }
+
+    /**
+     * Initializes bean validation if javax.validation.api bundle is on the class path.
+     */
+    private void initBeanValidation() {
+        // Bean validation is optional
+        if (BeanValidationChecker.isBeanValidationPresent()) {
+            beanValidationHelper = new BeanValidationHelper();
+        }
+    }
+
+    /**
+     * Returns BeanValidationHelper. Can return null if bean validation jar is not on class path.
+     */
+    public BeanValidationHelper getBeanValidationHelper() {
+        return beanValidationHelper;
     }
 
     public XMLInputFactory getXMLInputFactory() {
