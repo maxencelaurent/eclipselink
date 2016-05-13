@@ -23,6 +23,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 import org.eclipse.persistence.exceptions.*;
+import org.eclipse.persistence.expressions.ExpressionOperator;
 import org.eclipse.persistence.internal.databaseaccess.FieldTypeDefinition;
 import org.eclipse.persistence.internal.helper.*;
 import org.eclipse.persistence.queries.*;
@@ -351,5 +352,14 @@ public class InformixPlatform extends org.eclipse.persistence.platform.database.
     @Override
     public boolean isAlterSequenceObjectSupported() {
         return true;
+    }
+
+    /**
+     * INTERNAL: Initialize any platform-specific operators
+     */
+    @Override
+    protected void initializePlatformOperators() {
+        super.initializePlatformOperators();
+        addOperator(ExpressionOperator.simpleLogicalNoParens(ExpressionOperator.Concat, "||"));
     }
 }
