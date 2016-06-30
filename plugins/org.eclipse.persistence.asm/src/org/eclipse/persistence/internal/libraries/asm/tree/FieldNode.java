@@ -32,10 +32,9 @@ package org.eclipse.persistence.internal.libraries.asm.tree;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.persistence.internal.libraries.asm.*;
 import org.eclipse.persistence.internal.libraries.asm.AnnotationVisitor;
 import org.eclipse.persistence.internal.libraries.asm.Attribute;
-import org.eclipse.persistence.internal.libraries.asm.ClassVisitor;
-import org.eclipse.persistence.internal.libraries.asm.FieldVisitor;
 import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.TypePath;
 
@@ -47,7 +46,7 @@ import org.eclipse.persistence.internal.libraries.asm.TypePath;
 public class FieldNode extends FieldVisitor {
 
     /**
-     * The field's access flags (see {@link org.eclipse.persistence.internal.libraries.asm.Opcodes}). This
+     * The field's access flags (see {@link Opcodes}). This
      * field also indicates if the field is synthetic and/or deprecated.
      */
     public int access;
@@ -58,7 +57,7 @@ public class FieldNode extends FieldVisitor {
     public String name;
 
     /**
-     * The field's descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type}).
+     * The field's descriptor (see {@link Type}).
      */
     public String desc;
 
@@ -125,12 +124,12 @@ public class FieldNode extends FieldVisitor {
      * 
      * @param access
      *            the field's access flags (see
-     *            {@link org.eclipse.persistence.internal.libraries.asm.Opcodes}). This parameter also
+     *            {@link Opcodes}). This parameter also
      *            indicates if the field is synthetic and/or deprecated.
      * @param name
      *            the field's name.
      * @param desc
-     *            the field's descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type
+     *            the field's descriptor (see {@link Type
      *            Type}).
      * @param signature
      *            the field's signature.
@@ -159,12 +158,12 @@ public class FieldNode extends FieldVisitor {
      *            of {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      * @param access
      *            the field's access flags (see
-     *            {@link org.eclipse.persistence.internal.libraries.asm.Opcodes}). This parameter also
+     *            {@link Opcodes}). This parameter also
      *            indicates if the field is synthetic and/or deprecated.
      * @param name
      *            the field's name.
      * @param desc
-     *            the field's descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type
+     *            the field's descriptor (see {@link Type
      *            Type}).
      * @param signature
      *            the field's signature.
@@ -190,7 +189,7 @@ public class FieldNode extends FieldVisitor {
 
     @Override
     public AnnotationVisitor visitAnnotation(final String desc,
-            final boolean visible) {
+                                             final boolean visible) {
         AnnotationNode an = new AnnotationNode(desc);
         if (visible) {
             if (visibleAnnotations == null) {
@@ -208,7 +207,7 @@ public class FieldNode extends FieldVisitor {
 
     @Override
     public AnnotationVisitor visitTypeAnnotation(int typeRef,
-            TypePath typePath, String desc, boolean visible) {
+                                                 TypePath typePath, String desc, boolean visible) {
         TypeAnnotationNode an = new TypeAnnotationNode(typeRef, typePath, desc);
         if (visible) {
             if (visibleTypeAnnotations == null) {

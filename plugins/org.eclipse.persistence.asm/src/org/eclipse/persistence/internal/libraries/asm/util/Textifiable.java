@@ -31,10 +31,11 @@ package org.eclipse.persistence.internal.libraries.asm.util;
 
 import java.util.Map;
 
+import org.eclipse.persistence.internal.libraries.asm.Attribute;
 import org.eclipse.persistence.internal.libraries.asm.Label;
 
 /**
- * An {@link org.eclipse.persistence.internal.libraries.asm.Attribute Attribute} that can print a readable
+ * An {@link Attribute Attribute} that can print a readable
  * representation of itself.
  * 
  * Implementations should construct readable output from an attribute data

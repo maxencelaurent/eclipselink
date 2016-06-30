@@ -38,6 +38,7 @@ import org.eclipse.persistence.internal.libraries.asm.Opcodes;
  * 
  * @author Eugene Kuleshov
  */
+@Deprecated
 public class RemappingAnnotationAdapter extends AnnotationVisitor {
 
     protected final Remapper remapper;

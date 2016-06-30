@@ -34,17 +34,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.persistence.internal.libraries.asm.ClassReader;
 import org.eclipse.persistence.internal.libraries.asm.Handle;
+import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.Label;
 import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
-import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.Type;
 
 /**
  * A {@link MethodVisitor} that keeps track of stack map frame changes between
  * {@link #visitFrame(int, int, Object[], int, Object[]) visitFrame} calls. This
  * adapter must be used with the
- * {@link org.eclipse.persistence.internal.libraries.asm.ClassReader#EXPAND_FRAMES} option. Each
+ * {@link ClassReader#EXPAND_FRAMES} option. Each
  * visit<i>X</i> instruction delegates to the next visitor in the chain, if any,
  * and then simulates the effect of this instruction on the stack map frame,
  * represented by {@link #locals} and {@link #stack}. The next visitor in the

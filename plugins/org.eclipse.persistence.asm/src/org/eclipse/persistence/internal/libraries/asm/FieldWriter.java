@@ -29,7 +29,6 @@
  */
 package org.eclipse.persistence.internal.libraries.asm;
 
-
 /**
  * An {@link FieldVisitor} that generates Java fields in bytecode form.
  * 

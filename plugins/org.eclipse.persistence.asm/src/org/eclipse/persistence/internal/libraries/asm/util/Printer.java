@@ -33,10 +33,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.eclipse.persistence.internal.libraries.asm.Attribute;
-import org.eclipse.persistence.internal.libraries.asm.Handle;
-import org.eclipse.persistence.internal.libraries.asm.Label;
-import org.eclipse.persistence.internal.libraries.asm.Opcodes;
+import org.eclipse.persistence.internal.libraries.asm.*;
 import org.eclipse.persistence.internal.libraries.asm.TypePath;
 
 /**
@@ -53,14 +50,14 @@ public abstract class Printer {
 
     /**
      * The names of the for <code>operand</code> parameter values of the
-     * {@link org.eclipse.persistence.internal.libraries.asm.MethodVisitor#visitIntInsn} method when
+     * {@link MethodVisitor#visitIntInsn} method when
      * <code>opcode</code> is <code>NEWARRAY</code>.
      */
     public static final String[] TYPES;
 
     /**
      * The names of the <code>tag</code> field values for
-     * {@link org.eclipse.persistence.internal.libraries.asm.Handle}.
+     * {@link Handle}.
      */
     public static final String[] HANDLE_TAG;
 
@@ -195,7 +192,7 @@ public abstract class Printer {
      *            between source and compiled elements of the class. May be
      *            <tt>null</tt>.
      */
-    public abstract void visitSource(final String file, final String debug);
+    public abstract void visitSource(final String source, final String debug);
 
     
     public Printer visitModule() {
@@ -258,7 +255,7 @@ public abstract class Printer {
      * @return the printer
      */
     public Printer visitClassTypeAnnotation(final int typeRef,
-            final TypePath typePath, final String desc, final boolean visible) {
+                                            final TypePath typePath, final String desc, final boolean visible) {
         throw new RuntimeException("Must be overriden");
     }
 
@@ -347,7 +344,7 @@ public abstract class Printer {
             final String desc, final String signature, final String[] exceptions);
 
     /**
-     * Class end. See {@link org.eclipse.persistence.internal.libraries.asm.ClassVisitor#visitEnd}.
+     * Class end. See {@link ClassVisitor#visitEnd}.
      */
     public abstract void visitClassEnd();
 
@@ -445,7 +442,7 @@ public abstract class Printer {
     public abstract Printer visitArray(final String name);
 
     /**
-     * Annotation end. See {@link org.eclipse.persistence.internal.libraries.asm.AnnotationVisitor#visitEnd}.
+     * Annotation end. See {@link AnnotationVisitor#visitEnd}.
      */
     public abstract void visitAnnotationEnd();
 

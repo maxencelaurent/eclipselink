@@ -37,6 +37,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.persistence.internal.libraries.asm.tree.ClassNode;
+import org.eclipse.persistence.internal.libraries.asm.tree.analysis.Analyzer;
+import org.eclipse.persistence.internal.libraries.asm.tree.analysis.BasicValue;
+import org.eclipse.persistence.internal.libraries.asm.tree.analysis.SimpleVerifier;
 import org.eclipse.persistence.internal.libraries.asm.AnnotationVisitor;
 import org.eclipse.persistence.internal.libraries.asm.Attribute;
 import org.eclipse.persistence.internal.libraries.asm.ClassReader;
@@ -49,12 +53,8 @@ import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.Type;
 import org.eclipse.persistence.internal.libraries.asm.TypePath;
 import org.eclipse.persistence.internal.libraries.asm.TypeReference;
-import org.eclipse.persistence.internal.libraries.asm.tree.ClassNode;
 import org.eclipse.persistence.internal.libraries.asm.tree.MethodNode;
-import org.eclipse.persistence.internal.libraries.asm.tree.analysis.Analyzer;
-import org.eclipse.persistence.internal.libraries.asm.tree.analysis.BasicValue;
 import org.eclipse.persistence.internal.libraries.asm.tree.analysis.Frame;
-import org.eclipse.persistence.internal.libraries.asm.tree.analysis.SimpleVerifier;
 
 /**
  * A {@link ClassVisitor} that checks that its methods are properly used. More
@@ -94,9 +94,9 @@ import org.eclipse.persistence.internal.libraries.asm.tree.analysis.SimpleVerifi
  * insnNumber locals : stack):
  * 
  * <pre>
- * org.eclipse.persistence.internal.libraries.asm.tree.analysis.AnalyzerException: Error at instruction 71: Expected I, but found .
- *   at org.eclipse.persistence.internal.libraries.asm.tree.analysis.Analyzer.analyze(Analyzer.java:289)
- *   at org.eclipse.persistence.internal.libraries.asm.util.CheckClassAdapter.verify(CheckClassAdapter.java:135)
+ * org.objectweb.asm.tree.analysis.AnalyzerException: Error at instruction 71: Expected I, but found .
+ *   at org.objectweb.asm.tree.analysis.Analyzer.analyze(Analyzer.java:289)
+ *   at org.objectweb.asm.util.CheckClassAdapter.verify(CheckClassAdapter.java:135)
  * ...
  * remove()V
  * 00000 LinkedBlockingQueue$Itr . . . . . . . .  :
@@ -270,26 +270,26 @@ public class CheckClassAdapter extends ClassVisitor {
         for (int j = 0; j < method.instructions.size(); ++j) {
             method.instructions.get(j).accept(mv);
 
-            StringBuffer s = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
             Frame<BasicValue> f = frames[j];
             if (f == null) {
-                s.append('?');
+                sb.append('?');
             } else {
                 for (int k = 0; k < f.getLocals(); ++k) {
-                    s.append(getShortName(f.getLocal(k).toString()))
+                    sb.append(getShortName(f.getLocal(k).toString()))
                             .append(' ');
                 }
-                s.append(" : ");
+                sb.append(" : ");
                 for (int k = 0; k < f.getStackSize(); ++k) {
-                    s.append(getShortName(f.getStack(k).toString()))
+                    sb.append(getShortName(f.getStack(k).toString()))
                             .append(' ');
                 }
             }
-            while (s.length() < method.maxStack + method.maxLocals + 1) {
-                s.append(' ');
+            while (sb.length() < method.maxStack + method.maxLocals + 1) {
+                sb.append(' ');
             }
             pw.print(Integer.toString(j + 100000).substring(1));
-            pw.print(" " + s + " : " + t.text.get(t.text.size() - 1));
+            pw.print(" " + sb + " : " + t.text.get(t.text.size() - 1));
         }
         for (int j = 0; j < method.tryCatchBlocks.size(); ++j) {
             method.tryCatchBlocks.get(j).accept(mv);
@@ -532,7 +532,7 @@ public class CheckClassAdapter extends ClassVisitor {
 
     @Override
     public AnnotationVisitor visitAnnotation(final String desc,
-            final boolean visible) {
+                                             final boolean visible) {
         checkState();
         CheckMethodAdapter.checkDesc(desc, false);
         return new CheckAnnotationAdapter(super.visitAnnotation(desc, visible));
@@ -540,7 +540,7 @@ public class CheckClassAdapter extends ClassVisitor {
 
     @Override
     public AnnotationVisitor visitTypeAnnotation(final int typeRef,
-            final TypePath typePath, final String desc, final boolean visible) {
+                                                 final TypePath typePath, final String desc, final boolean visible) {
         checkState();
         int sort = typeRef >>> 24;
         if (sort != TypeReference.CLASS_TYPE_PARAMETER

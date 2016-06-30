@@ -38,6 +38,7 @@ import org.eclipse.persistence.internal.libraries.asm.signature.SignatureVisitor
  * 
  * @author Eugene Kuleshov
  */
+@Deprecated
 public class RemappingSignatureAdapter extends SignatureVisitor {
 
     private final SignatureVisitor v;

@@ -29,7 +29,6 @@
  */
 package org.eclipse.persistence.internal.libraries.asm;
 
-
 /**
  * A visitor to visit a Java annotation. The methods of this class must be
  * called in the following order: ( <tt>visit</tt> | <tt>visitEnum</tt> |

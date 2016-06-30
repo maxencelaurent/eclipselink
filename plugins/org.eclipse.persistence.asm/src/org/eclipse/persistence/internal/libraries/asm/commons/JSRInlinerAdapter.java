@@ -39,9 +39,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.Label;
 import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
-import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.Type;
 import org.eclipse.persistence.internal.libraries.asm.tree.AbstractInsnNode;
 import org.eclipse.persistence.internal.libraries.asm.tree.InsnList;
@@ -55,7 +55,7 @@ import org.eclipse.persistence.internal.libraries.asm.tree.TableSwitchInsnNode;
 import org.eclipse.persistence.internal.libraries.asm.tree.TryCatchBlockNode;
 
 /**
- * A {@link org.eclipse.persistence.internal.libraries.asm.MethodVisitor} that removes JSR instructions and
+ * A {@link MethodVisitor} that removes JSR instructions and
  * inlines the referenced subroutines.
  * 
  * <b>Explanation of how it works</b> TODO

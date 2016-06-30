@@ -34,10 +34,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.persistence.internal.libraries.asm.tree.IincInsnNode;
 import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.Type;
 import org.eclipse.persistence.internal.libraries.asm.tree.AbstractInsnNode;
-import org.eclipse.persistence.internal.libraries.asm.tree.IincInsnNode;
 import org.eclipse.persistence.internal.libraries.asm.tree.InsnList;
 import org.eclipse.persistence.internal.libraries.asm.tree.JumpInsnNode;
 import org.eclipse.persistence.internal.libraries.asm.tree.LabelNode;
@@ -102,6 +102,7 @@ public class Analyzer<V extends Value> implements Opcodes {
      * @throws AnalyzerException
      *             if a problem occurs during the analysis.
      */
+    @SuppressWarnings("unchecked")
     public Frame<V>[] analyze(final String owner, final MethodNode m)
             throws AnalyzerException {
         if ((m.access & (ACC_ABSTRACT | ACC_NATIVE)) != 0) {

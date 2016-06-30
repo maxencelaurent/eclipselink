@@ -29,7 +29,6 @@
  */
 package org.eclipse.persistence.internal.libraries.asm;
 
-
 /**
  * Information about an exception handler block.
  * 

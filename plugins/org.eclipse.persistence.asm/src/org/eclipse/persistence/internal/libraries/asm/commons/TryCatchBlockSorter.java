@@ -33,10 +33,10 @@ package org.eclipse.persistence.internal.libraries.asm.commons;
 import java.util.Collections;
 import java.util.Comparator;
 
-import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
 import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.tree.MethodNode;
 import org.eclipse.persistence.internal.libraries.asm.tree.TryCatchBlockNode;
+import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
 
 /**
  * A {@link MethodVisitor} adapter to sort the exception handlers. The handlers

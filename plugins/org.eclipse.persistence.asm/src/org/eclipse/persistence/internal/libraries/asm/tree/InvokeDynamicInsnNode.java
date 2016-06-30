@@ -32,8 +32,9 @@ package org.eclipse.persistence.internal.libraries.asm.tree;
 import java.util.Map;
 
 import org.eclipse.persistence.internal.libraries.asm.Handle;
-import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
 import org.eclipse.persistence.internal.libraries.asm.Opcodes;
+import org.eclipse.persistence.internal.libraries.asm.Type;
+import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
 
 /**
  * A node that represents an invokedynamic instruction.
@@ -68,7 +69,7 @@ public class InvokeDynamicInsnNode extends AbstractInsnNode {
      * @param name
      *            invokedynamic name.
      * @param desc
-     *            invokedynamic descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type}).
+     *            invokedynamic descriptor (see {@link Type}).
      * @param bsm
      *            the bootstrap method.
      * @param bsmArgs

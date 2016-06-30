@@ -31,10 +31,11 @@ package org.eclipse.persistence.internal.libraries.asm.util;
 
 import java.util.Map;
 
+import org.eclipse.persistence.internal.libraries.asm.Attribute;
 import org.eclipse.persistence.internal.libraries.asm.Label;
 
 /**
- * An {@link org.eclipse.persistence.internal.libraries.asm.Attribute Attribute} that can print the ASM code
+ * An {@link Attribute Attribute} that can print the ASM code
  * to create an equivalent attribute.
  * 
  * @author Eugene Kuleshov

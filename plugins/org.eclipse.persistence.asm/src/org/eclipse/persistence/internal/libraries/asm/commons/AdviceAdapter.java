@@ -41,7 +41,7 @@ import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 import org.eclipse.persistence.internal.libraries.asm.Type;
 
 /**
- * A {@link org.eclipse.persistence.internal.libraries.asm.MethodVisitor} to insert before, after and around
+ * A {@link MethodVisitor} to insert before, after and around
  * advices in methods and constructors.
  * <p>
  * The behavior for constructors is like this:
@@ -360,8 +360,8 @@ public abstract class AdviceAdapter extends GeneratorAdapter implements Opcodes 
                 break;
             case PUTFIELD:
                 popValue();
+                popValue();
                 if (longOrDouble) {
-                    popValue();
                     popValue();
                 }
                 break;
@@ -590,7 +590,7 @@ public abstract class AdviceAdapter extends GeneratorAdapter implements Opcodes 
     }
 
     /**
-     * Called at the beginning of the method or after super class class call in
+     * Called at the beginning of the method or after super class call in
      * the constructor. <br>
      * <br>
      * 

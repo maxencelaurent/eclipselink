@@ -29,7 +29,6 @@
  */
 package org.eclipse.persistence.internal.libraries.asm;
 
-
 /**
  * A {@link MethodVisitor} that generates methods in bytecode form. Each visit
  * method of this class appends the bytecode corresponding to the visited
@@ -1967,43 +1966,43 @@ class MethodWriter extends MethodVisitor {
                     stackMap.putByte(v);
                 }
             } else {
-                StringBuffer buf = new StringBuffer();
+                StringBuilder sb = new StringBuilder();
                 d >>= 28;
                 while (d-- > 0) {
-                    buf.append('[');
+                    sb.append('[');
                 }
                 if ((t & Frame.BASE_KIND) == Frame.OBJECT) {
-                    buf.append('L');
-                    buf.append(cw.typeTable[t & Frame.BASE_VALUE].strVal1);
-                    buf.append(';');
+                    sb.append('L');
+                    sb.append(cw.typeTable[t & Frame.BASE_VALUE].strVal1);
+                    sb.append(';');
                 } else {
                     switch (t & 0xF) {
                     case 1:
-                        buf.append('I');
+                        sb.append('I');
                         break;
                     case 2:
-                        buf.append('F');
+                        sb.append('F');
                         break;
                     case 3:
-                        buf.append('D');
+                        sb.append('D');
                         break;
                     case 9:
-                        buf.append('Z');
+                        sb.append('Z');
                         break;
                     case 10:
-                        buf.append('B');
+                        sb.append('B');
                         break;
                     case 11:
-                        buf.append('C');
+                        sb.append('C');
                         break;
                     case 12:
-                        buf.append('S');
+                        sb.append('S');
                         break;
                     default:
-                        buf.append('J');
+                        sb.append('J');
                     }
                 }
-                stackMap.putByte(7).putShort(cw.newClass(buf.toString()));
+                stackMap.putByte(7).putShort(cw.newClass(sb.toString()));
             }
         }
     }
@@ -2033,7 +2032,7 @@ class MethodWriter extends MethodVisitor {
         }
         int size = 8;
         if (code.length > 0) {
-            if (code.length > 65536) {
+            if (code.length > 65535) {
                 throw new RuntimeException("Method code too large!");
             }
             cw.newUTF8("Code");
@@ -2707,11 +2706,13 @@ class MethodWriter extends MethodVisitor {
                 l = l.successor;
             }
             // Update the offsets in the uninitialized types
-            for (i = 0; i < cw.typeTable.length; ++i) {
-                Item item = cw.typeTable[i];
-                if (item != null && item.type == ClassWriter.TYPE_UNINIT) {
-                    item.intVal = getNewOffset(allIndexes, allSizes, 0,
-                            item.intVal);
+            if (cw.typeTable != null) {
+                for (i = 0; i < cw.typeTable.length; ++i) {
+                    Item item = cw.typeTable[i];
+                    if (item != null && item.type == ClassWriter.TYPE_UNINIT) {
+                        item.intVal = getNewOffset(allIndexes, allSizes, 0,
+                                item.intVal);
+                    }
                 }
             }
             // The stack map frames are not serialized yet, so we don't need

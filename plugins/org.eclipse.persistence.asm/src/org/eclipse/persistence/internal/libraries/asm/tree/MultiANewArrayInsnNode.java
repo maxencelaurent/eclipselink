@@ -31,8 +31,9 @@ package org.eclipse.persistence.internal.libraries.asm.tree;
 
 import java.util.Map;
 
-import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
 import org.eclipse.persistence.internal.libraries.asm.Opcodes;
+import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
+import org.eclipse.persistence.internal.libraries.asm.Type;
 
 /**
  * A node that represents a MULTIANEWARRAY instruction.
@@ -42,7 +43,7 @@ import org.eclipse.persistence.internal.libraries.asm.Opcodes;
 public class MultiANewArrayInsnNode extends AbstractInsnNode {
 
     /**
-     * An array type descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type}).
+     * An array type descriptor (see {@link Type}).
      */
     public String desc;
 
@@ -55,7 +56,7 @@ public class MultiANewArrayInsnNode extends AbstractInsnNode {
      * Constructs a new {@link MultiANewArrayInsnNode}.
      * 
      * @param desc
-     *            an array type descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type}).
+     *            an array type descriptor (see {@link Type}).
      * @param dims
      *            number of dimensions of the array to allocate.
      */

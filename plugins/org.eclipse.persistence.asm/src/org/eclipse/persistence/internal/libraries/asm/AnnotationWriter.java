@@ -29,7 +29,6 @@
  */
 package org.eclipse.persistence.internal.libraries.asm;
 
-
 /**
  * An {@link AnnotationVisitor} that generates annotations in bytecode form.
  * 

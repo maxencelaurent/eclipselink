@@ -29,7 +29,6 @@
  */
 package org.eclipse.persistence.internal.libraries.asm;
 
-
 /**
  * A visitor to visit a Java field. The methods of this class must be called in
  * the following order: ( <tt>visitAnnotation</tt> |

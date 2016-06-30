@@ -32,6 +32,7 @@ package org.eclipse.persistence.internal.libraries.asm.tree;
 import java.util.Map;
 
 import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
+import org.eclipse.persistence.internal.libraries.asm.Type;
 
 /**
  * A node that represents a field instruction. A field instruction is an
@@ -43,7 +44,7 @@ public class FieldInsnNode extends AbstractInsnNode {
 
     /**
      * The internal name of the field's owner class (see
-     * {@link org.eclipse.persistence.internal.libraries.asm.Type#getInternalName() getInternalName}).
+     * {@link Type#getInternalName() getInternalName}).
      */
     public String owner;
 
@@ -53,7 +54,7 @@ public class FieldInsnNode extends AbstractInsnNode {
     public String name;
 
     /**
-     * The field's descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type}).
+     * The field's descriptor (see {@link Type}).
      */
     public String desc;
 
@@ -65,12 +66,12 @@ public class FieldInsnNode extends AbstractInsnNode {
      *            opcode must be GETSTATIC, PUTSTATIC, GETFIELD or PUTFIELD.
      * @param owner
      *            the internal name of the field's owner class (see
-     *            {@link org.eclipse.persistence.internal.libraries.asm.Type#getInternalName()
+     *            {@link Type#getInternalName()
      *            getInternalName}).
      * @param name
      *            the field's name.
      * @param desc
-     *            the field's descriptor (see {@link org.eclipse.persistence.internal.libraries.asm.Type}).
+     *            the field's descriptor (see {@link Type}).
      */
     public FieldInsnNode(final int opcode, final String owner,
             final String name, final String desc) {

@@ -42,6 +42,7 @@ import org.eclipse.persistence.internal.libraries.asm.TypePath;
  * 
  * @author Eugene Kuleshov
  */
+@Deprecated
 public class RemappingMethodAdapter extends LocalVariablesSorter {
 
     protected final Remapper remapper;

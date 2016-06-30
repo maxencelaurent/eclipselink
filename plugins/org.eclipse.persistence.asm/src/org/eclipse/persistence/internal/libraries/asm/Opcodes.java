@@ -29,7 +29,6 @@
  */
 package org.eclipse.persistence.internal.libraries.asm;
 
-
 /**
  * Defines the JVM opcodes, access flags and array type codes. This interface
  * does not define all the JVM opcodes because some opcodes are automatically
