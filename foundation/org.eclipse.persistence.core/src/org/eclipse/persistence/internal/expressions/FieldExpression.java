@@ -308,7 +308,11 @@ public class FieldExpression extends DataExpression {
             }
             if ((descriptor != null) && descriptor.hasTablePerClassPolicy()) {
                 field = field.clone();
-                field.setTable(descriptor.getDefaultTable());
+                DatabaseTable table = descriptor.getDefaultTable();
+                if(!StringHelper.isBlank(field.getTableName()) && descriptor.getTableNames().contains(field.getTableName())) {
+                    table = descriptor.getTable(field.getTableName());
+                }
+                field.setTable(table);
             }
         }
         return twistedBase.getField(field);
