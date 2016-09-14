@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 1998, 2015 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2016 Oracle and/or its affiliates. All rights reserved.
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v1.0 and Eclipse Distribution License v. 1.0
  * which accompanies this distribution.
@@ -1944,7 +1944,7 @@ public class SchemaGenerator {
         keyElement.setMinOccurs(Occurs.ZERO);
 
         JavaClass keyType = property.getKeyType();
-        JavaClass valueType = property.getValueType();
+        JavaClass valueType = property.getActualValueType();
 
         if (keyType == null) {
             keyType = helper.getJavaClass(Object.class);
@@ -2000,6 +2000,9 @@ public class SchemaGenerator {
                 typeName = prefix + COLON + valueSchemaType.getLocalPart();
             } else {
                 typeName = valueSchemaType.getLocalPart();
+            }
+            if (property.getValueGenericType() != null) {
+                valueElement.setMaxOccurs(Occurs.UNBOUNDED);
             }
             valueElement.setType(typeName);
         }
@@ -2232,7 +2235,7 @@ public class SchemaGenerator {
             public Void visit(PatternFacet t, Restriction restriction) {
                 String regex = t.getRegexp();
                 regex = introduceShorthands(regex);
-                restriction.setPattern(regex);
+                restriction.addPattern(regex);
                 return null;
             }
 

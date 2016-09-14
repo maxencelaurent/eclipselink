@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 1998, 2015 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2016 Oracle and/or its affiliates. All rights reserved.
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v1.0 and Eclipse Distribution License v. 1.0
  * which accompanies this distribution.
@@ -28,7 +28,9 @@ import java.security.PrivilegedActionException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.persistence.config.PersistenceUnitProperties;
 import org.eclipse.persistence.internal.helper.Helper;
+import org.eclipse.persistence.internal.localization.ExceptionLocalization;
 
 /**
  * INTERNAL:
@@ -43,6 +45,7 @@ import org.eclipse.persistence.internal.helper.Helper;
  * Note the usage of do privileged has major impacts on performance, so should normally be avoided.
  */
 public class PrivilegedAccessHelper {
+    private static final String TRUE_STRING = "true";
     private static boolean defaultUseDoPrivilegedValue = false;
     private static boolean shouldCheckPrivilegedAccess = true;
     private static boolean shouldUsePrivilegedAccess = false;
@@ -61,7 +64,7 @@ public class PrivilegedAccessHelper {
         primitiveClasses.put("void", void.class);
         primitiveClasses.put("short", short.class);
     }
-    
+
     /**
      * INTERNAL
      * It will be used to set default value of property "eclipselink.security.usedoprivileged"
@@ -71,7 +74,7 @@ public class PrivilegedAccessHelper {
         defaultUseDoPrivilegedValue = def;
         shouldCheckPrivilegedAccess = true;
     }
-    
+
     /**
      * Finding a field within a class potentially has to navigate through it's superclasses to eventually
      * find the field.  This method is called by the public getDeclaredField() method and does a recursive
@@ -113,7 +116,7 @@ public class PrivilegedAccessHelper {
             }
         }
     }
-    
+
     /**
      * Execute a java Class.forName().  Wrap the call in a doPrivileged block if necessary.
      * @param className
@@ -140,7 +143,7 @@ public class PrivilegedAccessHelper {
     }
 
     /**
-     * Gets the class loader for a given class.  Wraps the call in a privileged block if necessary
+     * Gets the class loader for a given class. Wraps the call in a privileged block if necessary
      */
     public static ClassLoader getClassLoaderForClass(final Class clazz) {
         return clazz.getClassLoader();
@@ -348,6 +351,74 @@ public class PrivilegedAccessHelper {
     }
 
     /**
+     * Check if {@code getSystemProperty} is allowed for provided property key.
+     * @param key The name of the {@link System} property.
+     * @return Value of {@code true} if {@code getSystemProperty} is allowed for this property key
+     *         or {@code false} otherwise.
+     */
+    private static boolean isIllegalProperty(final String key) {
+        return key == null || !(key.startsWith("eclipselink.") || "line.separator".equals(key)
+                || key.startsWith("javax.persistence.") || key.startsWith("org.eclipse.persistence.")
+                || key.startsWith("persistence.") || key.startsWith("javax.xml.")
+                || PersistenceUnitProperties.JAVASE_DB_INTERACTION.equals(key));
+    }
+
+    /**
+     * INTERNAL:
+     * Get the {@link System} property indicated by the specified {@code key}.
+     * @param key The name of the {@link System} property.
+     * @return The {@link String} value of the system property or {@code null} if property identified by {@code key}
+     *         does not exist.
+     * @since 2.6.2
+     */
+    public static final String getSystemProperty(final String key) {
+        if (isIllegalProperty(key)) {
+            throw new IllegalArgumentException(
+                    ExceptionLocalization.buildMessage("unexpect_argument", new Object[] {key}));
+        }
+        if (shouldUsePrivilegedAccess()) {
+            return AccessController.doPrivileged(new PrivilegedGetSystemProperty(key));
+        } else {
+            return System.getProperty(key);
+        }
+    }
+
+    /**
+     * INTERNAL:
+     * Get the {@link System} property indicated by the specified {@code key}.
+     * @param key The name of the {@link System} property.
+     * @return The {@link String} value of the system property or {@code def} if property identified by {@code key}
+     *         does not exist.
+     * @since 2.6.2
+     */
+    public static final String getSystemProperty(final String key, final String def) {
+        if (isIllegalProperty(key)) {
+            throw new IllegalArgumentException(
+                    ExceptionLocalization.buildMessage("unexpect_argument", new Object[] {key}));
+        }
+        if (shouldUsePrivilegedAccess()) {
+            return AccessController.doPrivileged(new PrivilegedGetSystemProperty(key, def));
+        } else {
+            return System.getProperty(key, def);
+        }
+    }
+
+    /**
+     * INTERNAL:
+     * Get boolean value of the {@link System} property indicated by the specified {@code key}.
+     * @param key The name of the {@link System} property.
+     * @param def The default value.
+     * @return {@code true} if the property value is {@code "true"} (case insensitive)
+     *         or the property is not defined and {@code def} is {@code true};
+     *         {@code false} otherwise.
+     * @since 2.6.3
+     */
+    public static final boolean getSystemPropertyBoolean(final String key, final boolean def) {
+        return TRUE_STRING.equalsIgnoreCase(
+                getSystemProperty(key, def ? TRUE_STRING : ""));
+    }
+
+    /**
      * Get the line separator character.
      * Previous versions of TopLink always did this in a privileged block so we will continue to do so.
      */
@@ -453,7 +524,7 @@ public class PrivilegedAccessHelper {
                 if (usePrivileged == null) {
                     shouldUsePrivilegedAccess = defaultUseDoPrivilegedValue;
                 } else {
-                    shouldUsePrivilegedAccess = usePrivileged.equalsIgnoreCase("true");
+                    shouldUsePrivilegedAccess = usePrivileged.equalsIgnoreCase(TRUE_STRING);
                 }
             } else {
                 shouldUsePrivilegedAccess = false;

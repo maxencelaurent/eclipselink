@@ -122,7 +122,7 @@
         <taskdef name="selectbundle" classname="${custom.selectbundle.task.class}" classpath="${custom.tasks.lib}"/>
 
         <!-- Defaults of Pre-Set variables -->
-        <property name="release.version"                    value="2.6.2"/>
+        <property name="release.version"                    value="2.6.3"/>
         <property name="version.qualifier"                  value="qualifier"/>
         <property name="version.string"                     value="${release.version}.${version.qualifier}"/>
         <property name="eclipselink.install.prefix"         value="eclipselink"/>
@@ -257,7 +257,7 @@
         <property name="xml.stream.prefix" value="javax.xml.stream"/>
         <property name="xml.stream.criteria" value="[1.0.1,1.1.0)"/>
         <property name="mongodb.prefix" value="org.eclipse.orbit.mongodb"/>
-        <property name="mongodb.criteria" value="[2.7.2,2.8.0)"/>
+        <property name="mongodb.criteria" value="[2.7.2,9.0.0)"/>
         <property name="json.prefix" value="org.glassfish.javax.json"/>
         <property name="json.criteria" value="[1.0.4,5.0.0)"/>
 
