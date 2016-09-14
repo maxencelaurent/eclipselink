@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 1998, 2015 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2016 Oracle and/or its affiliates. All rights reserved.
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v1.0 and Eclipse Distribution License v. 1.0
  * which accompanies this distribution.
@@ -21,6 +21,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.URL;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -28,8 +29,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.StringTokenizer;
 
-import javax.validation.ConstraintViolation;
-import javax.validation.ValidatorFactory;
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.PropertyException;
@@ -45,40 +44,38 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.transform.Source;
 import javax.xml.validation.Schema;
 
-import org.eclipse.persistence.exceptions.BeanValidationException;
-import org.w3c.dom.Node;
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
-
-import org.eclipse.persistence.oxm.IDResolver;
-import org.eclipse.persistence.oxm.MediaType;
-import org.eclipse.persistence.oxm.NamespacePrefixMapper;
-import org.eclipse.persistence.oxm.NamespaceResolver;
-import org.eclipse.persistence.oxm.XMLUnmarshaller;
-import org.eclipse.persistence.oxm.record.UnmarshalRecord;
-
 import org.eclipse.persistence.core.queries.CoreAttributeGroup;
+import org.eclipse.persistence.exceptions.BeanValidationException;
 import org.eclipse.persistence.exceptions.XMLMarshalException;
+import org.eclipse.persistence.internal.core.helper.CoreClassConstants;
+import org.eclipse.persistence.internal.jaxb.IDResolverWrapper;
+import org.eclipse.persistence.internal.jaxb.ObjectGraphImpl;
+import org.eclipse.persistence.internal.jaxb.WrappedValue;
+import org.eclipse.persistence.internal.jaxb.many.ManyValue;
 import org.eclipse.persistence.internal.oxm.Constants;
 import org.eclipse.persistence.internal.oxm.Root;
 import org.eclipse.persistence.internal.oxm.StrBuffer;
 import org.eclipse.persistence.internal.oxm.XMLConversionManager;
 import org.eclipse.persistence.internal.oxm.mappings.Descriptor;
 import org.eclipse.persistence.internal.oxm.mappings.DirectCollectionMapping;
-import org.eclipse.persistence.internal.oxm.record.namespaces.PrefixMapperNamespaceResolver;
 import org.eclipse.persistence.internal.oxm.record.XMLEventReaderInputSource;
 import org.eclipse.persistence.internal.oxm.record.XMLEventReaderReader;
 import org.eclipse.persistence.internal.oxm.record.XMLStreamReaderInputSource;
 import org.eclipse.persistence.internal.oxm.record.XMLStreamReaderReader;
+import org.eclipse.persistence.internal.oxm.record.namespaces.PrefixMapperNamespaceResolver;
 import org.eclipse.persistence.jaxb.JAXBContext.RootLevelXmlAdapter;
 import org.eclipse.persistence.jaxb.attachment.AttachmentUnmarshallerAdapter;
-import org.eclipse.persistence.internal.core.helper.CoreClassConstants;
-import org.eclipse.persistence.internal.jaxb.IDResolverWrapper;
-import org.eclipse.persistence.internal.jaxb.ObjectGraphImpl;
-import org.eclipse.persistence.internal.jaxb.WrappedValue;
-import org.eclipse.persistence.internal.jaxb.many.ManyValue;
+import org.eclipse.persistence.oxm.IDResolver;
+import org.eclipse.persistence.oxm.MediaType;
+import org.eclipse.persistence.oxm.NamespacePrefixMapper;
+import org.eclipse.persistence.oxm.NamespaceResolver;
+import org.eclipse.persistence.oxm.XMLUnmarshaller;
+import org.eclipse.persistence.oxm.record.UnmarshalRecord;
+import org.w3c.dom.Node;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * INTERNAL:
@@ -99,12 +96,14 @@ import org.eclipse.persistence.internal.jaxb.many.ManyValue;
  */
 public class JAXBUnmarshaller implements Unmarshaller {
 
-    private final JAXBBeanValidator beanValidator;
+    private JAXBBeanValidator beanValidator;
 
     private BeanValidationMode beanValidationMode;
-    private ValidatorFactory prefValidatorFactory;
+
+    // The actual type is ValidatorFactory. It's done due to optional nature of javax.validation.
+    private Object prefValidatorFactory;
     private boolean bvNoOptimisation = false;
-    private Class<?>[] beanValidationGroups = JAXBBeanValidator.DEFAULT_GROUP_ARRAY;
+    private Class<?>[] beanValidationGroups;
 
     private final XMLUnmarshaller xmlUnmarshaller;
     private final JAXBContext jaxbContext;
@@ -120,7 +119,9 @@ public class JAXBUnmarshaller implements Unmarshaller {
         this.jaxbContext = jaxbContext;
         validationEventHandler = JAXBContext.DEFAULT_VALIDATION_EVENT_HANDLER;
         beanValidationMode = BeanValidationMode.AUTO;
-        beanValidator = JAXBBeanValidator.getUnmarshallingBeanValidator(this.jaxbContext);
+        if (BeanValidationChecker.isBeanValidationPresent()) {
+            beanValidator = JAXBBeanValidator.getUnmarshallingBeanValidator(this.jaxbContext);
+        }
         xmlUnmarshaller = newXMLUnmarshaller;
         xmlUnmarshaller.setValidationMode(XMLUnmarshaller.NONVALIDATING);
         xmlUnmarshaller.setUnmarshalListener(new JAXBUnmarshalListener(this));
@@ -134,6 +135,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         return xmlUnmarshaller;
     }
 
+    @Override
     public Object unmarshal(File file) throws JAXBException {
         try {
             Object value = xmlUnmarshaller.unmarshal(file);
@@ -147,6 +149,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
 
 
 
+    @Override
     public Object unmarshal(InputStream inputStream) throws JAXBException {
         try {
             if (xmlUnmarshaller.isAutoDetectMediaType() || xmlUnmarshaller.getMediaType() == MediaType.APPLICATION_JSON || null == jaxbContext.getXMLInputFactory() || XMLUnmarshaller.NONVALIDATING != xmlUnmarshaller.getValidationMode()) {
@@ -172,6 +175,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public Object unmarshal(URL url) throws JAXBException {
         try {
             Object value = xmlUnmarshaller.unmarshal(url);
@@ -183,6 +187,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public Object unmarshal(InputSource inputSource) throws JAXBException {
         try {
             Object value = xmlUnmarshaller.unmarshal(inputSource);
@@ -194,6 +199,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public Object unmarshal(Reader reader) throws JAXBException {
 
         try {
@@ -220,6 +226,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public Object unmarshal(Node node) throws JAXBException {
         try {
             Object value = xmlUnmarshaller.unmarshal(node);
@@ -232,7 +239,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
     }
 
     private JAXBElement validateAndBuildJAXBElement(Object obj, Class declaredClass) throws BeanValidationException {
-        if (beanValidator.shouldValidate(obj, beanValidationMode, prefValidatorFactory, bvNoOptimisation)) {
+        if (beanValidator != null && beanValidator.shouldValidate(obj, beanValidationMode, prefValidatorFactory, bvNoOptimisation)) {
             beanValidator.validate(obj, beanValidationGroups);
         }
         return buildJAXBElementFromObject(obj, declaredClass);
@@ -300,6 +307,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public JAXBElement unmarshal(Node node, Class javaClass) throws JAXBException {
         if(null == javaClass) {
             throw new IllegalArgumentException();
@@ -318,6 +326,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public Object unmarshal(Source source) throws JAXBException {
         try {
             Object value = xmlUnmarshaller.unmarshal(source);
@@ -329,6 +338,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public JAXBElement unmarshal(Source source, Class javaClass) throws JAXBException {
         if(null == javaClass) {
             throw new IllegalArgumentException();
@@ -432,6 +442,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public JAXBElement unmarshal(XMLStreamReader streamReader, Class javaClass) throws JAXBException {
         if(null == streamReader || null == javaClass) {
             throw new IllegalArgumentException();
@@ -526,7 +537,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
                     adapter = jaxbContext.getTypeMappingInfoToJavaTypeAdapters().get(type);
                 }
                 UnmarshalRecord wrapper = (UnmarshalRecord) xmlDescriptor.getObjectBuilder().createRecordFromXMLContext(xmlUnmarshaller.getXMLContext());
-                org.eclipse.persistence.internal.oxm.record.UnmarshalRecord unmarshalRecord = (org.eclipse.persistence.internal.oxm.record.UnmarshalRecord) wrapper.getUnmarshalRecord();
+                org.eclipse.persistence.internal.oxm.record.UnmarshalRecord unmarshalRecord = wrapper.getUnmarshalRecord();
                 XMLStreamReaderReader staxReader = new XMLStreamReaderReader(xmlUnmarshaller);
                 unmarshalRecord.setUnmarshaller(xmlUnmarshaller);
                 unmarshalRecord.setXMLReader(staxReader);
@@ -613,6 +624,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public Object unmarshal(XMLStreamReader streamReader) throws JAXBException {
         if(null == streamReader) {
             throw new IllegalArgumentException();
@@ -629,6 +641,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public JAXBElement unmarshal(XMLEventReader eventReader, Class javaClass) throws JAXBException {
         if(null == eventReader || null == javaClass) {
             throw new IllegalArgumentException();
@@ -731,6 +744,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public Object unmarshal(XMLEventReader eventReader) throws JAXBException {
         if(null == eventReader) {
             throw new IllegalArgumentException();
@@ -747,10 +761,12 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public UnmarshallerHandler getUnmarshallerHandler() {
         return new JAXBUnmarshallerHandler(this);
     }
 
+    @Override
     public void setValidating(boolean validate) throws JAXBException {
         if (validate) {
             xmlUnmarshaller.setValidationMode(XMLUnmarshaller.SCHEMA_VALIDATION);
@@ -759,10 +775,12 @@ public class JAXBUnmarshaller implements Unmarshaller {
         }
     }
 
+    @Override
     public boolean isValidating() throws JAXBException {
         return xmlUnmarshaller.getValidationMode() != XMLUnmarshaller.NONVALIDATING;
     }
 
+    @Override
     public void setEventHandler(ValidationEventHandler newValidationEventHandler) throws JAXBException {
         if (null == newValidationEventHandler) {
             validationEventHandler = JAXBContext.DEFAULT_VALIDATION_EVENT_HANDLER;
@@ -776,6 +794,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
                 .DEFAULT_VALIDATION_EVENT_HANDLER);
     }
 
+    @Override
     public ValidationEventHandler getEventHandler() throws JAXBException {
         return validationEventHandler;
     }
@@ -785,6 +804,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
      * property will result in a javax.xml.bind.PropertyException.
      * @see org.eclipse.persistence.jaxb.UnmarshallerProperties
      */
+    @Override
     public void setProperty(String key, Object value) throws PropertyException {
         if (key == null) {
             throw new IllegalArgumentException();
@@ -867,10 +887,8 @@ public class JAXBUnmarshaller implements Unmarshaller {
             }
             this.beanValidationMode = ((BeanValidationMode) value);
         } else if (UnmarshallerProperties.BEAN_VALIDATION_FACTORY.equals(key)) {
-            if(value == null){
-                // Allow null value for preferred validation factory.
-            }
-            this.prefValidatorFactory = ((ValidatorFactory)value);
+            // Null value is allowed
+            this.prefValidatorFactory = value;
         } else if (UnmarshallerProperties.BEAN_VALIDATION_GROUPS.equals(key)) {
             if (value == null) {
                 throw new PropertyException(key, Constants.EMPTY_STRING);
@@ -881,6 +899,14 @@ public class JAXBUnmarshaller implements Unmarshaller {
                 throw new PropertyException(key, Constants.EMPTY_STRING);
             }
             this.bvNoOptimisation = ((boolean) value);
+        } else if (UnmarshallerProperties.DISABLE_SECURE_PROCESSING.equals(key)) {
+            if(value == null){
+                throw new PropertyException(key, Constants.EMPTY_STRING);
+            }
+            boolean disabled = value instanceof String
+                    ? Boolean.parseBoolean((String) value)
+                    : (boolean) value;
+            xmlUnmarshaller.setDisableSecureProcessing(disabled);
         } else {
             throw new PropertyException(key, value);
         }
@@ -892,6 +918,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
      * See <a href="#supportedProps">Supported Properties</a>.  
      * @see org.eclipse.persistence.jaxb.UnmarshallerProperties
      */
+    @Override
     public Object getProperty(String key) throws PropertyException {
         if (key == null) {
             throw new IllegalArgumentException();
@@ -956,18 +983,23 @@ public class JAXBUnmarshaller implements Unmarshaller {
             return this.beanValidationGroups;
         } else if (UnmarshallerProperties.BEAN_VALIDATION_NO_OPTIMISATION.equals(key)) {
             return this.bvNoOptimisation;
+        } else if (UnmarshallerProperties.DISABLE_SECURE_PROCESSING.equals(key)) {
+            return xmlUnmarshaller.isSecureProcessingDisabled();
         }
         throw new PropertyException(key);
     }
 
+    @Override
     public Unmarshaller.Listener getListener() {
         return ((JAXBUnmarshalListener)xmlUnmarshaller.getUnmarshalListener()).getListener();
     }
 
+    @Override
     public void setListener(Unmarshaller.Listener listener) {
         ((JAXBUnmarshalListener)xmlUnmarshaller.getUnmarshalListener()).setListener(listener);
     }
 
+    @Override
     public XmlAdapter getAdapter(Class javaClass) {
         HashMap result = (HashMap) xmlUnmarshaller.getProperty(XML_JAVATYPE_ADAPTERS);
         if (result == null) {
@@ -976,6 +1008,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         return (XmlAdapter) result.get(javaClass);
     }
 
+    @Override
     public void setAdapter(Class javaClass, XmlAdapter adapter) {
         HashMap result = (HashMap) xmlUnmarshaller.getProperty(XML_JAVATYPE_ADAPTERS);
         if (result == null) {
@@ -985,18 +1018,22 @@ public class JAXBUnmarshaller implements Unmarshaller {
         result.put(javaClass, adapter);
     }
 
+    @Override
     public void setAdapter(XmlAdapter adapter) {
         setAdapter(adapter.getClass(), adapter);
     }
 
+    @Override
     public void setSchema(Schema schema) {
         this.xmlUnmarshaller.setSchema(schema);
     }
 
+    @Override
     public Schema getSchema() {
         return this.xmlUnmarshaller.getSchema();
     }
 
+    @Override
     public AttachmentUnmarshaller getAttachmentUnmarshaller() {
         if(xmlUnmarshaller.getAttachmentUnmarshaller() == null) {
             return null;
@@ -1004,6 +1041,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
         return ((AttachmentUnmarshallerAdapter)xmlUnmarshaller.getAttachmentUnmarshaller()).getAttachmentUnmarshaller();
     }
 
+    @Override
     public void setAttachmentUnmarshaller(AttachmentUnmarshaller unmarshaller) {
         if(unmarshaller == null) {
             xmlUnmarshaller.setAttachmentUnmarshaller(null);
@@ -1017,7 +1055,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
     }
 
     private Object validateAndTransformIfRequired(Object obj) throws BeanValidationException {
-        if (beanValidator.shouldValidate(obj, beanValidationMode, prefValidatorFactory, bvNoOptimisation)) {
+        if (beanValidator != null && beanValidator.shouldValidate(obj, beanValidationMode, prefValidatorFactory, bvNoOptimisation)) {
             beanValidator.validate(obj, beanValidationGroups);
         }
         return createJAXBElementOrUnwrapIfRequired(obj);
@@ -1101,8 +1139,11 @@ public class JAXBUnmarshaller implements Unmarshaller {
      *
      * @return set of constraint violations from last unmarshal
      */
-    public Set<? extends ConstraintViolation<?>> getConstraintViolations() {
-        return beanValidator.getConstraintViolations();
+    public Set<ConstraintViolationWrapper<Object>> getConstraintViolations() {
+        if (beanValidator != null) {
+            return beanValidator.getConstraintViolations();
+        }
+        return Collections.emptySet();
     }
 
     private static class PrimitiveContentHandler<T> extends DefaultHandler {
@@ -1118,6 +1159,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
             this.clazz = clazz;
         }
 
+        @Override
         public void characters(char[] ch, int start, int length) throws SAXException {
             stringBuilder.append(ch, start, length);
         }
@@ -1212,6 +1254,7 @@ public class JAXBUnmarshaller implements Unmarshaller {
             this.unmarshalledArray = (T) Array.newInstance(componentClass, currentSize);
         }
 
+        @Override
         public void startElement(String namespaceURI, String localName, String qualifiedName, Attributes attributes) throws SAXException {
             if (localName.equals("item") || singleNode) {
                 acceptCharacters = true;
@@ -1223,12 +1266,14 @@ public class JAXBUnmarshaller implements Unmarshaller {
             }
         }
 
+        @Override
         public void characters(char[] ch, int start, int length) throws SAXException {
             if (acceptCharacters) {
                 stringBuffer.append(ch, start, length);
             }
         }
 
+        @Override
         public void endElement(String namespaceURI, String localName, String qualifiedName) throws SAXException {
             acceptCharacters = false;
 
