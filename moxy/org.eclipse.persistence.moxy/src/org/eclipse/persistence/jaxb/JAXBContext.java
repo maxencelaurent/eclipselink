@@ -179,7 +179,8 @@ public class JAXBContext extends javax.xml.bind.JAXBContext {
     private boolean initializedXMLInputFactory = false;
     private JAXBMarshaller jsonSchemaMarshaller;
 
-    private BeanValidationHelper beanValidationHelper;
+    private static volatile BeanValidationHelper beanValidationHelper;
+    private static volatile Boolean beanValidationPresent;
 
     protected JAXBContext() {
         super();
@@ -224,9 +225,16 @@ public class JAXBContext extends javax.xml.bind.JAXBContext {
      * Initializes bean validation if javax.validation.api bundle is on the class path.
      */
     private void initBeanValidation() {
-        // Bean validation is optional
-        if (BeanValidationChecker.isBeanValidationPresent()) {
-            beanValidationHelper = new BeanValidationHelper();
+        if (beanValidationPresent == null) {
+            beanValidationPresent = BeanValidationChecker.isBeanValidationPresent();
+        }
+        if (beanValidationPresent && beanValidationHelper == null) {
+            synchronized (JAXBContext.class) {
+                if (beanValidationHelper == null) {
+                    // Bean validation is optional
+                    beanValidationHelper = new BeanValidationHelper();
+                }
+            }
         }
     }
 
