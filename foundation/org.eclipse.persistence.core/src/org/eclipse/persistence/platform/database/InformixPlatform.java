@@ -13,6 +13,8 @@
  *       - 454917 : Wrong SQL statement generated for Informix when GenerationType.IDENTITY strategy is used
  *     02/19/2015 - Rick Curtis
  *       - 458877 : Add national character support
+ *     05/13/2016 - David Weaver [C2B2 Consulting Limited and/or its affiliates]
+ *     PAYARA-742 : Wrong SQL syntax generated for Informix when concat is used
  *****************************************************************************/
 package org.eclipse.persistence.platform.database;
 
@@ -25,6 +27,7 @@ import java.util.Calendar;
 import java.util.Hashtable;
 
 import org.eclipse.persistence.exceptions.ValidationException;
+import org.eclipse.persistence.expressions.ExpressionOperator;
 import org.eclipse.persistence.internal.databaseaccess.FieldTypeDefinition;
 import org.eclipse.persistence.internal.helper.Helper;
 import org.eclipse.persistence.queries.ValueReadQuery;
@@ -353,4 +356,15 @@ public class InformixPlatform extends org.eclipse.persistence.platform.database.
     public boolean isAlterSequenceObjectSupported() {
         return true;
     }
+    
+    /**
+     * INTERNAL: Initialize any platform-specific operators
+     */
+    @Override
+    protected void initializePlatformOperators() {
+        super.initializePlatformOperators();
+        addOperator(ExpressionOperator.simpleLogicalNoParens(ExpressionOperator.Concat, "||"));
+    }
+
 }
+

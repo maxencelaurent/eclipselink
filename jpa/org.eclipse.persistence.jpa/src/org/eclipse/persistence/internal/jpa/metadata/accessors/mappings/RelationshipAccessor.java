@@ -51,6 +51,8 @@
  *       - 389090: JPA 2.1 DDL Generation Support (foreign key metadata support)
  *     11/28/2012-2.5 Guy Pelletier
  *       - 374688: JPA 2.1 Converter support
+ *      6/17/2016-2.6.2 David Weaver [C2B2 Consulting Limited and/or its affiliates]
+ *       - PAYARA-815 Default JoinFetch annotation to INNER and BatchFetch annotation to JOIN
  ******************************************************************************/
 package org.eclipse.persistence.internal.jpa.metadata.accessors.mappings;
 
@@ -65,9 +67,11 @@ import java.util.List;
 import java.util.Vector;
 
 import org.eclipse.persistence.annotations.BatchFetch;
+import org.eclipse.persistence.annotations.BatchFetchType;
 import org.eclipse.persistence.annotations.CascadeOnDelete;
 import org.eclipse.persistence.annotations.Convert;
 import org.eclipse.persistence.annotations.JoinFetch;
+import org.eclipse.persistence.annotations.JoinFetchType;
 import org.eclipse.persistence.annotations.Noncacheable;
 import org.eclipse.persistence.annotations.PrivateOwned;
 import org.eclipse.persistence.exceptions.ValidationException;
@@ -151,11 +155,17 @@ public abstract class RelationshipAccessor extends MappingAccessor {
         // Set the join fetch if one is present.
         if (isAnnotationPresent(JoinFetch.class)) {
             m_joinFetch = getAnnotation(JoinFetch.class).getAttributeString("value");
+            if (m_joinFetch == null) {
+                m_joinFetch = JoinFetchType.INNER.name();
+            }
         }
 
         // Set the batch fetch if one is present.
         if (isAnnotationPresent(BatchFetch.class)) {
             m_batchFetch = new BatchFetchMetadata(getAnnotation(BatchFetch.class), this);
+            if (m_batchFetch.getType() == null) {
+                m_batchFetch.setType(BatchFetchType.JOIN.name());
+            }
         }
 
         // Set the join columns if some are present.
