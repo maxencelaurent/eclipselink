@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2011, 2018 Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2020 Payara Services Ltd.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -482,13 +481,8 @@ public class MetamodelImpl implements Metamodel, Serializable {
             }
         }
 
-        //1 - preinitalise all mappings so attribute types are set
-        //2 - process all non-mappedSuperclass types first so we pick up attribute types
-        //3 - process mappedSuperclass types and lookup collection attribute types on inheriting entity types when field is not set
-        
-        for(ManagedTypeImpl<?> managedType : new ArrayList<ManagedTypeImpl<?>>(managedTypes.values())) {
-            managedType.preinitaliseMappings(session);
-        }
+        //1 - process all non-mappedSuperclass types first so we pick up attribute types
+        //2 - process mappedSuperclass types and lookup collection attribute types on inheriting entity types when field is not set
 
         /**
          * Delayed-Initialization (process all mappings) of all Managed types
@@ -515,7 +509,7 @@ public class MetamodelImpl implements Metamodel, Serializable {
         }
         isInitialized = true;
     }
-    
+
     /**
      *  Return the metamodel managed type representing the
      *  entity, mapped superclass, or embeddable class.
