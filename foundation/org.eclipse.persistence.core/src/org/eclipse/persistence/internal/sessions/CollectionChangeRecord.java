@@ -64,7 +64,7 @@ public class CollectionChangeRecord extends DeferrableChangeRecord implements or
     /**
      * Contains the removed values index to the collection.
      */
-    protected transient List<Integer> orderedRemoveObjectIndices;
+    protected List<Integer> orderedRemoveObjectIndices;
 
     /**
      * Contains a list of extra adds.  These extra adds are used by attribute change tracking
