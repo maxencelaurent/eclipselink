@@ -36,10 +36,25 @@ import org.eclipse.persistence.internal.libraries.asm.FieldVisitor;
 import org.eclipse.persistence.internal.libraries.asm.MethodVisitor;
 import org.eclipse.persistence.internal.libraries.asm.ModuleVisitor;
 import org.eclipse.persistence.internal.libraries.asm.Opcodes;
+import org.eclipse.persistence.internal.libraries.asm.RecordComponentVisitor;
 import org.eclipse.persistence.internal.libraries.asm.TypePath;
 
 /**
  * A {@link ClassVisitor} that remaps types with a {@link Remapper}.
+ *
+ * <p><i>This visitor has several limitations</i>. A non-exhaustive list is the following:
+ *
+ * <ul>
+ *   <li>it cannot remap type names in dynamically computed strings (remapping of type names in
+ *       static values is supported).
+ *   <li>it cannot remap values derived from type names at compile time, such as
+ *       <ul>
+ *         <li>type name hashcodes used by some Java compilers to implement the string switch
+ *             statement.
+ *         <li>some compound strings used by some Java compilers to implement lambda
+ *             deserialization.
+ *       </ul>
+ * </ul>
  *
  * @author Eugene Kuleshov
  */
@@ -59,7 +74,7 @@ public class ClassRemapper extends ClassVisitor {
    * @param remapper the remapper to use to remap the types in the visited class.
    */
   public ClassRemapper(final ClassVisitor classVisitor, final Remapper remapper) {
-    this(Opcodes.ASM7, classVisitor, remapper);
+    this(/* latest api = */ Opcodes.ASM7, classVisitor, remapper);
   }
 
   /**
@@ -128,6 +143,20 @@ public class ClassRemapper extends ClassVisitor {
   }
 
   @Override
+  public RecordComponentVisitor visitRecordComponentExperimental(
+      final int access, final String name, final String descriptor, final String signature) {
+    RecordComponentVisitor recordComponentVisitor =
+        super.visitRecordComponentExperimental(
+            access,
+            remapper.mapRecordComponentNameExperimental(className, name, descriptor),
+            remapper.mapDesc(descriptor),
+            remapper.mapSignature(signature, true));
+    return recordComponentVisitor == null
+        ? null
+        : createRecordComponentRemapper(recordComponentVisitor);
+  }
+
+  @Override
   public FieldVisitor visitField(
       final int access,
       final String name,
@@ -190,6 +219,11 @@ public class ClassRemapper extends ClassVisitor {
     super.visitNestMember(remapper.mapType(nestMember));
   }
 
+  @Override
+  public void visitPermittedSubtypeExperimental(final String permittedSubtype) {
+    super.visitPermittedSubtypeExperimental(remapper.mapType(permittedSubtype));
+  }
+
   /**
    * Constructs a new remapper for fields. The default implementation of this method returns a new
    * {@link FieldRemapper}.
@@ -232,5 +266,17 @@ public class ClassRemapper extends ClassVisitor {
    */
   protected ModuleVisitor createModuleRemapper(final ModuleVisitor moduleVisitor) {
     return new ModuleRemapper(api, moduleVisitor, remapper);
+  }
+
+  /**
+   * Constructs a new remapper for record components. The default implementation of this method
+   * returns a new {@link RecordComponentRemapper}.
+   *
+   * @param recordComponentVisitor the RecordComponentVisitor the remapper must delegate to.
+   * @return the newly created remapper.
+   */
+  protected RecordComponentVisitor createRecordComponentRemapper(
+      final RecordComponentVisitor recordComponentVisitor) {
+    return new RecordComponentRemapper(api, recordComponentVisitor, remapper);
   }
 }
